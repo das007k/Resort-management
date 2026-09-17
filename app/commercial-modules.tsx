@@ -1,12 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { BadgeIndianRupee, Banknote, Check, Gift, IndianRupee, Medal, Plus, Search, Settings2, Sparkles, Star, UsersRound, WalletCards } from "lucide-react";
+import { BadgeIndianRupee, Banknote, Building2, Check, FileText, Gift, IndianRupee, Medal, Percent, Plus, ReceiptText, Search, Settings2, Sparkles, Star, UsersRound, WalletCards } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { cardOffers, loyaltyRewards, serviceCatalogue, serviceCategories, ServiceCategory } from "./commercial-config";
+import { cardOffers, loyaltyRewards, serviceCatalogue, serviceCategories, ServiceCategory, TaxSettings } from "./commercial-config";
 import { money } from "./domain";
 
 export function ServiceCatalogueAdmin({ enabledServiceIds, onEnabledChange, onNotice }: { enabledServiceIds: string[]; onEnabledChange: (ids: string[]) => void; onNotice: (value: string) => void }) {
@@ -50,8 +50,35 @@ export function LoyaltyAndOffers({ onNotice }: { onNotice: (value: string) => vo
   </>;
 }
 
+export function PropertySettings({ taxSettings, onTaxSettingsChange, onNotice }: { taxSettings: TaxSettings; onTaxSettingsChange: (settings: TaxSettings) => void; onNotice: (value: string) => void }) {
+  const update = <K extends keyof TaxSettings>(key: K, value: TaxSettings[K]) => onTaxSettingsChange({ ...taxSettings, [key]: value });
+  const save = () => { onNotice("Tax and invoicing settings saved for Cardamom Rock."); window.setTimeout(() => onNotice(""), 3400); };
+  const clampRate = (value: number) => Math.max(0, Math.min(100, Number.isFinite(value) ? value : 0));
+  return <>
+    <Heading eyebrow="Property configuration" title="Settings" description="Control tax calculation and invoice identity for this resort. Quotations use these values automatically." />
+    <section className="grid gap-6 xl:grid-cols-[1fr_.72fr]">
+      <div className="rounded-2xl border bg-white p-5 shadow-sm sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4 border-b pb-5"><div className="flex items-start gap-3"><span className="grid size-11 place-items-center rounded-xl bg-blue-50 text-[#003b95]"><ReceiptText className="size-5" /></span><div><h2 className="font-bold">Tax & invoicing</h2><p className="mt-1 text-sm text-slate-500">Property-specific GST controls used in quotations and future invoices.</p></div></div><div className="flex items-center gap-3 rounded-xl border px-3 py-2"><span className="text-sm font-semibold">GST enabled</span><Switch checked={taxSettings.gstEnabled} onCheckedChange={(checked) => update("gstEnabled", checked)} /></div></div>
+        <div className={`mt-5 grid gap-5 sm:grid-cols-2 ${taxSettings.gstEnabled ? "" : "opacity-50"}`}>
+          <Field label="Accommodation GST rate"><div className="relative"><Input type="number" min="0" max="100" step="0.01" disabled={!taxSettings.gstEnabled} value={taxSettings.accommodationRate} onChange={(e) => update("accommodationRate", clampRate(Number(e.target.value)))} className="pr-9" /><Percent className="absolute right-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" /></div></Field>
+          <Field label="Services & add-ons GST rate"><div className="relative"><Input type="number" min="0" max="100" step="0.01" disabled={!taxSettings.gstEnabled} value={taxSettings.serviceRate} onChange={(e) => update("serviceRate", clampRate(Number(e.target.value)))} className="pr-9" /><Percent className="absolute right-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" /></div></Field>
+          <Field label="Price display"><select disabled={!taxSettings.gstEnabled} value={taxSettings.pricesIncludeTax ? "inclusive" : "exclusive"} onChange={(e) => update("pricesIncludeTax", e.target.value === "inclusive")} className="h-10 w-full rounded-md border bg-white px-3 text-sm disabled:bg-slate-50"><option value="exclusive">Tax exclusive — add GST to total</option><option value="inclusive">Tax inclusive — show GST breakup</option></select></Field>
+          <Field label="GSTIN"><Input disabled={!taxSettings.gstEnabled} value={taxSettings.gstin} onChange={(e) => update("gstin", e.target.value.toUpperCase())} placeholder="Enter property GSTIN" /></Field>
+          <Field label="Quotation / invoice prefix"><Input value={taxSettings.invoicePrefix} maxLength={8} onChange={(e) => update("invoicePrefix", e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ""))} placeholder="CRR" /></Field>
+        </div>
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t pt-5"><p className="max-w-xl text-xs leading-5 text-slate-500">Tax rules can differ by property and service type. Confirm the rates applicable to your resort with your tax adviser before issuing a final tax invoice.</p><Button className="bg-[#003b95]" onClick={save}>Save tax settings</Button></div>
+      </div>
+      <div className="space-y-5">
+        <div className="rounded-2xl bg-[#004bad] p-5 text-white shadow-sm"><div className="flex items-center justify-between"><span className="grid size-10 place-items-center rounded-xl bg-[#febb02] text-[#003b95]"><FileText className="size-5" /></span><span className="rounded-full bg-white/10 px-3 py-1 text-xs font-bold">LIVE PREVIEW</span></div><p className="mt-6 text-xs font-bold uppercase tracking-[.14em] text-[#febb02]">{taxSettings.invoicePrefix || "QUOTE"}-2026-018</p><h3 className="mt-2 text-xl font-bold">Cardamom Rock Resort</h3><div className="mt-5 space-y-3 rounded-xl bg-white/10 p-4 text-sm"><div className="flex justify-between"><span className="text-white/60">Accommodation GST</span><strong>{taxSettings.gstEnabled ? `${taxSettings.accommodationRate}%` : "Disabled"}</strong></div><div className="flex justify-between"><span className="text-white/60">Services GST</span><strong>{taxSettings.gstEnabled ? `${taxSettings.serviceRate}%` : "Disabled"}</strong></div><div className="flex justify-between"><span className="text-white/60">Price mode</span><strong>{taxSettings.pricesIncludeTax ? "Inclusive" : "Exclusive"}</strong></div>{taxSettings.gstEnabled && <div className="flex justify-between border-t border-white/15 pt-3"><span className="text-white/60">GSTIN</span><strong>{taxSettings.gstin || "Not entered"}</strong></div>}</div></div>
+        <div className="rounded-2xl border bg-white p-5"><div className="flex gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-700"><Building2 className="size-5" /></span><div><h3 className="font-bold">Per-property control</h3><p className="mt-1 text-sm leading-6 text-slate-500">Each resort can maintain its own tax registration, rate structure and document prefix without changing the shared service catalogue.</p></div></div></div>
+      </div>
+    </section>
+  </>;
+}
+
 function Heading({ eyebrow, title, description, action }: { eyebrow: string; title: string; description: string; action?: React.ReactNode }) { return <div className="mb-6 flex flex-wrap items-end justify-between gap-4"><div><p className="mb-1 text-xs font-bold uppercase tracking-[.14em] text-[#006ce4]">{eyebrow}</p><h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{title}</h1><p className="mt-2 max-w-2xl text-sm text-slate-500">{description}</p></div>{action}</div>; }
 function Metric({ label, value, note, icon: Icon }: { label: string; value: string; note: string; icon: typeof Settings2 }) { return <div className="rounded-2xl border bg-white p-5"><div className="flex items-start justify-between"><div><p className="text-sm text-slate-500">{label}</p><p className="mt-2 text-2xl font-bold">{value}</p><p className="mt-1 text-xs text-slate-500">{note}</p></div><span className="grid size-10 place-items-center rounded-xl bg-blue-50 text-[#003b95]"><Icon className="size-5" /></span></div></div>; }
 function Rule({ value, label }: { value: string; label: string }) { return <div className="rounded-xl bg-blue-50 p-4"><strong className="block text-lg text-[#003b95]">{value}</strong><span className="mt-1 block text-xs text-slate-500">{label}</span></div>; }
 function Tier({ name, requirement, benefit, tone }: { name: string; requirement: string; benefit: string; tone: string }) { return <div className={`rounded-xl p-4 ${tone}`}><strong className="block">{name}</strong><span className="mt-1 block text-xs opacity-70">{requirement}</span><span className="mt-3 block text-xs font-semibold">{benefit}</span></div>; }
 function ServiceIcon({ category }: { category: ServiceCategory }) { const map: Record<ServiceCategory, typeof IndianRupee> = { Transport: WalletCards, Dining: BadgeIndianRupee, Experiences: Sparkles, Wellness: Star, Celebrations: Gift, Family: UsersRound, Convenience: Settings2, Events: Medal }; const Icon = map[category]; return <Icon className="size-4" />; }
+function Field({ label, children }: { label: string; children: React.ReactNode }) { return <label className="grid gap-2 text-sm font-semibold">{label}{children}</label>; }

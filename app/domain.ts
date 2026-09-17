@@ -1,4 +1,4 @@
-export type ViewKey = "overview" | "quotations" | "services" | "loyalty" | "reservations" | "frontdesk" | "housekeeping" | "direct" | "channels" | "whatsapp" | "revenue" | "payments" | "maintenance" | "reports";
+export type ViewKey = "overview" | "quotations" | "invoices" | "services" | "loyalty" | "reservations" | "frontdesk" | "housekeeping" | "direct" | "channels" | "whatsapp" | "revenue" | "payments" | "maintenance" | "reports" | "settings";
 
 export type Reservation = {
   id: string; guest: string; phone: string; unit: string; checkIn: string; checkOut: string;

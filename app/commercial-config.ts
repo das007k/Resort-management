@@ -9,6 +9,24 @@ export type ResortService = {
   defaultEnabled: boolean;
 };
 
+export type TaxSettings = {
+  gstEnabled: boolean;
+  accommodationRate: number;
+  serviceRate: number;
+  pricesIncludeTax: boolean;
+  gstin: string;
+  invoicePrefix: string;
+};
+
+export const defaultTaxSettings: TaxSettings = {
+  gstEnabled: true,
+  accommodationRate: 12,
+  serviceRate: 18,
+  pricesIncludeTax: false,
+  gstin: "32ABCDE1234F1Z5",
+  invoicePrefix: "CRR",
+};
+
 export const serviceCategories: ServiceCategory[] = ["Transport", "Dining", "Experiences", "Wellness", "Celebrations", "Family", "Convenience", "Events"];
 
 export const serviceCatalogue: ResortService[] = [

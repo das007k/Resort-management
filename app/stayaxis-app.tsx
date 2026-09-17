@@ -9,18 +9,20 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { money, Reservation, seedReservations, seedUnits, ViewKey } from "./domain";
 import { ChannelManager, DirectBookings, RevenueControl, WhatsAppWorkflows } from "./growth-modules";
 import { Quotations } from "./quotation-module";
-import { LoyaltyAndOffers, ServiceCatalogueAdmin } from "./commercial-modules";
-import { serviceCatalogue } from "./commercial-config";
+import { InvoiceGenerator } from "./invoice-module";
+import { LoyaltyAndOffers, PropertySettings, ServiceCatalogueAdmin } from "./commercial-modules";
+import { defaultTaxSettings, serviceCatalogue } from "./commercial-config";
 
 const nav: { key: ViewKey; label: string; icon: typeof LayoutDashboard }[] = [
   { key: "overview", label: "Overview", icon: LayoutDashboard }, { key: "quotations", label: "Quotations", icon: FileText },
+  { key: "invoices", label: "Invoices", icon: IndianRupee },
   { key: "services", label: "Services & add-ons", icon: Settings2 }, { key: "loyalty", label: "Loyalty & offers", icon: Gift },
   { key: "reservations", label: "Reservations", icon: CalendarDays },
   { key: "frontdesk", label: "Front desk", icon: UsersRound }, { key: "housekeeping", label: "Housekeeping", icon: ClipboardCheck },
   { key: "direct", label: "Direct bookings", icon: Globe2 }, { key: "channels", label: "Channel manager", icon: Network },
   { key: "whatsapp", label: "WhatsApp", icon: MessageSquareText }, { key: "revenue", label: "Revenue control", icon: TrendingUp },
   { key: "payments", label: "Payments", icon: CreditCard }, { key: "maintenance", label: "Maintenance", icon: Wrench },
-  { key: "reports", label: "Reports", icon: TrendingUp },
+  { key: "reports", label: "Reports", icon: TrendingUp }, { key: "settings", label: "Settings", icon: Settings },
 ];
 const statusTone: Record<string, string> = { Confirmed: "bg-emerald-50 text-emerald-700 border-emerald-200", "Checked in": "bg-blue-50 text-blue-700 border-blue-200", Pending: "bg-amber-50 text-amber-700 border-amber-200" };
 
@@ -29,6 +31,7 @@ export default function StayAxisApp() {
   const [bookingOpen, setBookingOpen] = useState(false); const [search, setSearch] = useState("");
   const [reservations, setReservations] = useState(seedReservations); const [notice, setNotice] = useState("");
   const [enabledServiceIds, setEnabledServiceIds] = useState(() => serviceCatalogue.filter((service) => service.defaultEnabled).map((service) => service.id));
+  const [taxSettings, setTaxSettings] = useState(defaultTaxSettings);
   useEffect(() => {
     const context = (document as Document & { modelContext?: { registerTool?: Function } }).modelContext;
     if (!context?.registerTool) return; const lifecycle = new AbortController();
@@ -48,7 +51,7 @@ export default function StayAxisApp() {
       <div className="flex items-center gap-3 border-t border-white/10 p-4"><span className="grid size-9 place-items-center rounded-full bg-[#febb02] text-sm font-bold text-[#003b95]">DK</span><span className="min-w-0 flex-1"><strong className="block truncate text-sm">Devidas K S</strong><span className="block text-xs text-white/45">Owner access</span></span><Settings className="size-4 text-white/45" /></div>
     </aside>
     <div className="lg:pl-[250px]"><header className="sticky top-0 z-30 flex h-[76px] items-center gap-3 border-b border-slate-200/80 bg-white/90 px-4 backdrop-blur-xl sm:px-6 lg:px-8"><button onClick={() => setMobileNav(true)} className="grid size-10 place-items-center rounded-lg border lg:hidden" aria-label="Open navigation"><Menu /></button><div className="relative max-w-xl flex-1"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" /><Input value={search} onChange={(e) => setSearch(e.target.value)} className="h-11 rounded-xl border-slate-200 bg-slate-50 pl-10 shadow-none" placeholder="Search guests, booking ID or room…" /></div><button className="hidden h-10 items-center gap-2 rounded-xl border bg-white px-3 text-sm text-slate-600 sm:flex"><MessageCircle className="size-4 text-emerald-600" /> WhatsApp</button><button className="relative grid size-10 place-items-center rounded-xl border bg-white" aria-label="Notifications"><Bell className="size-[18px]" /><span className="absolute right-2 top-2 size-2 rounded-full bg-red-500 ring-2 ring-white" /></button><BookingDialog open={bookingOpen} onOpenChange={setBookingOpen} onSubmit={addBooking} /></header>
-      <main className="mx-auto max-w-[1500px] p-4 sm:p-6 lg:p-8">{view === "overview" && <Overview reservations={reservations} onNavigate={selectView} />}{view === "quotations" && <Quotations enabledServiceIds={enabledServiceIds} onConfigureServices={() => selectView("services")} onNotice={setNotice} />}{view === "services" && <ServiceCatalogueAdmin enabledServiceIds={enabledServiceIds} onEnabledChange={setEnabledServiceIds} onNotice={setNotice} />}{view === "loyalty" && <LoyaltyAndOffers onNotice={setNotice} />}{view === "reservations" && <Reservations reservations={filtered} />}{view === "frontdesk" && <FrontDesk />}{view === "housekeeping" && <Housekeeping />}{view === "direct" && <DirectBookings onNotice={setNotice} />}{view === "channels" && <ChannelManager onNotice={setNotice} />}{view === "whatsapp" && <WhatsAppWorkflows onNotice={setNotice} />}{view === "revenue" && <RevenueControl reservations={reservations} onNotice={setNotice} />}{view === "payments" && <Payments reservations={reservations} onNotice={setNotice} />}{view === "maintenance" && <Maintenance />}{view === "reports" && <Reports reservations={reservations} />}</main>
+      <main className="mx-auto max-w-[1500px] p-4 sm:p-6 lg:p-8">{view === "overview" && <Overview reservations={reservations} onNavigate={selectView} />}{view === "quotations" && <Quotations enabledServiceIds={enabledServiceIds} taxSettings={taxSettings} onConfigureServices={() => selectView("services")} onConfigureTax={() => selectView("settings")} onNotice={setNotice} />}{view === "invoices" && <InvoiceGenerator taxSettings={taxSettings} onConfigureTax={() => selectView("settings")} onNotice={setNotice} />}{view === "services" && <ServiceCatalogueAdmin enabledServiceIds={enabledServiceIds} onEnabledChange={setEnabledServiceIds} onNotice={setNotice} />}{view === "loyalty" && <LoyaltyAndOffers onNotice={setNotice} />}{view === "reservations" && <Reservations reservations={filtered} />}{view === "frontdesk" && <FrontDesk />}{view === "housekeeping" && <Housekeeping />}{view === "direct" && <DirectBookings onNotice={setNotice} />}{view === "channels" && <ChannelManager onNotice={setNotice} />}{view === "whatsapp" && <WhatsAppWorkflows onNotice={setNotice} />}{view === "revenue" && <RevenueControl reservations={reservations} onNotice={setNotice} />}{view === "payments" && <Payments reservations={reservations} onNotice={setNotice} />}{view === "maintenance" && <Maintenance />}{view === "reports" && <Reports reservations={reservations} />}{view === "settings" && <PropertySettings taxSettings={taxSettings} onTaxSettingsChange={setTaxSettings} onNotice={setNotice} />}</main>
     </div>
   </div>;
 }
