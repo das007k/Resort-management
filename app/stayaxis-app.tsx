@@ -1,16 +1,17 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { BedDouble, Bell, CalendarDays, ChevronDown, ChevronRight, ClipboardCheck, CreditCard, Globe2, IndianRupee, LayoutDashboard, Menu, MessageCircle, MessageSquareText, Network, Plus, Search, Settings, ShieldCheck, Sparkles, TrendingUp, UsersRound, Wrench, X, Zap } from "lucide-react";
+import { BedDouble, Bell, CalendarDays, ChevronDown, ChevronRight, ClipboardCheck, CreditCard, FileText, Globe2, IndianRupee, LayoutDashboard, Menu, MessageCircle, MessageSquareText, Network, Plus, Search, Settings, ShieldCheck, Sparkles, TrendingUp, UsersRound, Wrench, X, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { money, Reservation, seedReservations, seedUnits, ViewKey } from "./domain";
 import { ChannelManager, DirectBookings, RevenueControl, WhatsAppWorkflows } from "./growth-modules";
+import { Quotations } from "./quotation-module";
 
 const nav: { key: ViewKey; label: string; icon: typeof LayoutDashboard }[] = [
-  { key: "overview", label: "Overview", icon: LayoutDashboard }, { key: "reservations", label: "Reservations", icon: CalendarDays },
+  { key: "overview", label: "Overview", icon: LayoutDashboard }, { key: "quotations", label: "Quotations", icon: FileText }, { key: "reservations", label: "Reservations", icon: CalendarDays },
   { key: "frontdesk", label: "Front desk", icon: UsersRound }, { key: "housekeeping", label: "Housekeeping", icon: ClipboardCheck },
   { key: "direct", label: "Direct bookings", icon: Globe2 }, { key: "channels", label: "Channel manager", icon: Network },
   { key: "whatsapp", label: "WhatsApp", icon: MessageSquareText }, { key: "revenue", label: "Revenue control", icon: TrendingUp },
@@ -42,7 +43,7 @@ export default function StayAxisApp() {
       <div className="flex items-center gap-3 border-t border-white/10 p-4"><span className="grid size-9 place-items-center rounded-full bg-[#d3f36b] text-sm font-bold text-[#102c27]">DK</span><span className="min-w-0 flex-1"><strong className="block truncate text-sm">Devidas K S</strong><span className="block text-xs text-white/45">Owner access</span></span><Settings className="size-4 text-white/45" /></div>
     </aside>
     <div className="lg:pl-[250px]"><header className="sticky top-0 z-30 flex h-[76px] items-center gap-3 border-b border-slate-200/80 bg-white/90 px-4 backdrop-blur-xl sm:px-6 lg:px-8"><button onClick={() => setMobileNav(true)} className="grid size-10 place-items-center rounded-lg border lg:hidden" aria-label="Open navigation"><Menu /></button><div className="relative max-w-xl flex-1"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" /><Input value={search} onChange={(e) => setSearch(e.target.value)} className="h-11 rounded-xl border-slate-200 bg-slate-50 pl-10 shadow-none" placeholder="Search guests, booking ID or room…" /></div><button className="hidden h-10 items-center gap-2 rounded-xl border bg-white px-3 text-sm text-slate-600 sm:flex"><MessageCircle className="size-4 text-emerald-600" /> WhatsApp</button><button className="relative grid size-10 place-items-center rounded-xl border bg-white" aria-label="Notifications"><Bell className="size-[18px]" /><span className="absolute right-2 top-2 size-2 rounded-full bg-red-500 ring-2 ring-white" /></button><BookingDialog open={bookingOpen} onOpenChange={setBookingOpen} onSubmit={addBooking} /></header>
-      <main className="mx-auto max-w-[1500px] p-4 sm:p-6 lg:p-8">{view === "overview" && <Overview reservations={reservations} onNavigate={selectView} />}{view === "reservations" && <Reservations reservations={filtered} />}{view === "frontdesk" && <FrontDesk />}{view === "housekeeping" && <Housekeeping />}{view === "direct" && <DirectBookings onNotice={setNotice} />}{view === "channels" && <ChannelManager onNotice={setNotice} />}{view === "whatsapp" && <WhatsAppWorkflows onNotice={setNotice} />}{view === "revenue" && <RevenueControl reservations={reservations} onNotice={setNotice} />}{view === "payments" && <Payments reservations={reservations} onNotice={setNotice} />}{view === "maintenance" && <Maintenance />}{view === "reports" && <Reports reservations={reservations} />}</main>
+      <main className="mx-auto max-w-[1500px] p-4 sm:p-6 lg:p-8">{view === "overview" && <Overview reservations={reservations} onNavigate={selectView} />}{view === "quotations" && <Quotations onNotice={setNotice} />}{view === "reservations" && <Reservations reservations={filtered} />}{view === "frontdesk" && <FrontDesk />}{view === "housekeeping" && <Housekeeping />}{view === "direct" && <DirectBookings onNotice={setNotice} />}{view === "channels" && <ChannelManager onNotice={setNotice} />}{view === "whatsapp" && <WhatsAppWorkflows onNotice={setNotice} />}{view === "revenue" && <RevenueControl reservations={reservations} onNotice={setNotice} />}{view === "payments" && <Payments reservations={reservations} onNotice={setNotice} />}{view === "maintenance" && <Maintenance />}{view === "reports" && <Reports reservations={reservations} />}</main>
     </div>
   </div>;
 }
