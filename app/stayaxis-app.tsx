@@ -32,14 +32,34 @@ export default function StayAxisApp() {
   const [reservations, setReservations] = useState(seedReservations); const [notice, setNotice] = useState("");
   const [enabledServiceIds, setEnabledServiceIds] = useState(() => serviceCatalogue.filter((service) => service.defaultEnabled).map((service) => service.id));
   const [taxSettings, setTaxSettings] = useState(defaultTaxSettings);
+  const loadReservations = async () => {
+    try {
+      const response = await fetch("/api/reservations", { cache: "no-store" });
+      if (!response.ok) return;
+      const data = await response.json() as { reservations?: Reservation[] };
+      const saved = data.reservations ?? [];
+      setReservations([...saved, ...seedReservations.filter((seed) => !saved.some((item) => item.id === seed.id))]);
+    } catch { /* Preserve the operational sample data while the database reconnects. */ }
+  };
   useEffect(() => {
     const context = (document as Document & { modelContext?: { registerTool?: Function } }).modelContext;
     if (!context?.registerTool) return; const lifecycle = new AbortController();
     void Promise.resolve(context.registerTool({ name: "open_new_reservation", title: "Open new reservation", description: "Open the StayAxis new reservation form.", inputSchema: { type: "object", properties: {}, additionalProperties: false }, annotations: { readOnlyHint: false, untrustedContentHint: false }, execute: async () => { setBookingOpen(true); return { opened: true }; } }, { signal: lifecycle.signal })).catch(() => undefined);
     return () => lifecycle.abort();
   }, []);
+  useEffect(() => { void loadReservations(); }, []);
   const filtered = useMemo(() => reservations.filter((r) => `${r.guest} ${r.id} ${r.unit}`.toLowerCase().includes(search.toLowerCase())), [reservations, search]);
-  function addBooking(event: FormEvent<HTMLFormElement>) { event.preventDefault(); const form = new FormData(event.currentTarget); const guest = String(form.get("guest") || "New guest"); setReservations((items) => [{ id: `STX-${1043 + items.length - seedReservations.length}`, guest, phone: String(form.get("phone") || ""), unit: String(form.get("unit") || "Pepper Cottage"), checkIn: String(form.get("checkIn") || "17 Sep"), checkOut: String(form.get("checkOut") || "18 Sep"), source: "Direct", amount: Number(form.get("amount") || 0), paid: 0, status: "Pending" }, ...items]); setBookingOpen(false); setView("reservations"); setNotice(`Reservation created for ${guest}. Payment link is ready to send.`); window.setTimeout(() => setNotice(""), 4200); }
+  async function addBooking(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget); const guest = String(form.get("guest") || "New guest");
+    try {
+      const response = await fetch("/api/reservations", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ guest, phone: String(form.get("phone") || ""), unit: String(form.get("unit") || "Pepper Cottage"), checkIn: String(form.get("checkIn") || "17 Sep"), checkOut: String(form.get("checkOut") || "18 Sep"), amount: Number(form.get("amount") || 0) }) });
+      const data = await response.json() as { reservation?: Reservation; error?: string };
+      if (!response.ok || !data.reservation) throw new Error(data.error || "Unable to create reservation.");
+      await loadReservations(); setBookingOpen(false); setView("reservations"); setNotice(`Reservation ${data.reservation.id} created for ${guest}. Payment link is ready to send.`);
+    } catch (error) { setNotice(error instanceof Error ? error.message : "Unable to create reservation."); }
+    window.setTimeout(() => setNotice(""), 4200);
+  }
   const selectView = (key: ViewKey) => { setView(key); setMobileNav(false); };
   return <div className="min-h-screen bg-[#f2f6fb] text-slate-950">
     {notice && <div role="status" className="fixed right-5 top-5 z-[70] max-w-sm rounded-xl bg-[#003b95] px-4 py-3 text-sm text-white shadow-2xl">{notice}</div>}
@@ -51,7 +71,7 @@ export default function StayAxisApp() {
       <div className="flex items-center gap-3 border-t border-white/10 p-4"><span className="grid size-9 place-items-center rounded-full bg-[#febb02] text-sm font-bold text-[#003b95]">DK</span><span className="min-w-0 flex-1"><strong className="block truncate text-sm">Devidas K S</strong><span className="block text-xs text-white/45">Owner access</span></span><Settings className="size-4 text-white/45" /></div>
     </aside>
     <div className="lg:pl-[250px]"><header className="sticky top-0 z-30 flex h-[76px] items-center gap-3 border-b border-slate-200/80 bg-white/90 px-4 backdrop-blur-xl sm:px-6 lg:px-8"><button onClick={() => setMobileNav(true)} className="grid size-10 place-items-center rounded-lg border lg:hidden" aria-label="Open navigation"><Menu /></button><div className="relative max-w-xl flex-1"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" /><Input value={search} onChange={(e) => setSearch(e.target.value)} className="h-11 rounded-xl border-slate-200 bg-slate-50 pl-10 shadow-none" placeholder="Search guests, booking ID or room…" /></div><button className="hidden h-10 items-center gap-2 rounded-xl border bg-white px-3 text-sm text-slate-600 sm:flex"><MessageCircle className="size-4 text-emerald-600" /> WhatsApp</button><button className="relative grid size-10 place-items-center rounded-xl border bg-white" aria-label="Notifications"><Bell className="size-[18px]" /><span className="absolute right-2 top-2 size-2 rounded-full bg-red-500 ring-2 ring-white" /></button><BookingDialog open={bookingOpen} onOpenChange={setBookingOpen} onSubmit={addBooking} /></header>
-      <main className="mx-auto max-w-[1500px] p-4 sm:p-6 lg:p-8">{view === "overview" && <Overview reservations={reservations} onNavigate={selectView} />}{view === "quotations" && <Quotations enabledServiceIds={enabledServiceIds} taxSettings={taxSettings} onConfigureServices={() => selectView("services")} onConfigureTax={() => selectView("settings")} onNotice={setNotice} />}{view === "invoices" && <InvoiceGenerator taxSettings={taxSettings} onConfigureTax={() => selectView("settings")} onNotice={setNotice} />}{view === "services" && <ServiceCatalogueAdmin enabledServiceIds={enabledServiceIds} onEnabledChange={setEnabledServiceIds} onNotice={setNotice} />}{view === "loyalty" && <LoyaltyAndOffers onNotice={setNotice} />}{view === "reservations" && <Reservations reservations={filtered} />}{view === "frontdesk" && <FrontDesk />}{view === "housekeeping" && <Housekeeping />}{view === "direct" && <DirectBookings onNotice={setNotice} />}{view === "channels" && <ChannelManager onNotice={setNotice} />}{view === "whatsapp" && <WhatsAppWorkflows onNotice={setNotice} />}{view === "revenue" && <RevenueControl reservations={reservations} onNotice={setNotice} />}{view === "payments" && <Payments reservations={reservations} onNotice={setNotice} />}{view === "maintenance" && <Maintenance />}{view === "reports" && <Reports reservations={reservations} />}{view === "settings" && <PropertySettings taxSettings={taxSettings} onTaxSettingsChange={setTaxSettings} onNotice={setNotice} />}</main>
+      <main className="mx-auto max-w-[1500px] p-4 sm:p-6 lg:p-8">{view === "overview" && <Overview reservations={reservations} onNavigate={selectView} />}{view === "quotations" && <Quotations enabledServiceIds={enabledServiceIds} taxSettings={taxSettings} onConfigureServices={() => selectView("services")} onConfigureTax={() => selectView("settings")} onNotice={setNotice} onReservationCreated={async () => { await loadReservations(); setView("reservations"); }} />}{view === "invoices" && <InvoiceGenerator taxSettings={taxSettings} onConfigureTax={() => selectView("settings")} onNotice={setNotice} />}{view === "services" && <ServiceCatalogueAdmin enabledServiceIds={enabledServiceIds} onEnabledChange={setEnabledServiceIds} onNotice={setNotice} />}{view === "loyalty" && <LoyaltyAndOffers onNotice={setNotice} />}{view === "reservations" && <Reservations reservations={filtered} />}{view === "frontdesk" && <FrontDesk />}{view === "housekeeping" && <Housekeeping />}{view === "direct" && <DirectBookings onNotice={setNotice} />}{view === "channels" && <ChannelManager onNotice={setNotice} />}{view === "whatsapp" && <WhatsAppWorkflows onNotice={setNotice} />}{view === "revenue" && <RevenueControl reservations={reservations} onNotice={setNotice} />}{view === "payments" && <Payments reservations={reservations} onNotice={setNotice} />}{view === "maintenance" && <Maintenance />}{view === "reports" && <Reports reservations={reservations} />}{view === "settings" && <PropertySettings taxSettings={taxSettings} onTaxSettingsChange={setTaxSettings} onNotice={setNotice} />}</main>
     </div>
   </div>;
 }

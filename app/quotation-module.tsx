@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CalendarRange, Check, ChevronRight, Download, FileCheck2, IndianRupee, MessageCircleMore, Plus, Settings2, Sparkles, UsersRound, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { cardOffers, loyaltyRewards, serviceCatalogue, TaxSettings } from "./com
 import { money } from "./domain";
 
 type Season = { id: string; name: string; multiplier: number; start: string; end: string; tone: string };
+type StoredQuote = { id: string; quoteNo: string; guest: string; unit: string; total: number; status: string; createdAt: string };
 
 const seasons: Season[] = [
   { id: "green", name: "Green season", multiplier: 0.9, start: "2026-06-01", end: "2026-09-30", tone: "bg-emerald-50 text-emerald-700" },
@@ -34,7 +35,7 @@ function parseDate(value: string) { const [y, m, d] = value.split("-").map(Numbe
 function nightsBetween(from: string, to: string) { return Math.max(1, Math.round((parseDate(to).getTime() - parseDate(from).getTime()) / 86400000)); }
 function activeSeason(date: string) { return seasons.find((season) => date >= season.start && date <= season.end) ?? seasons[3]; }
 
-export function Quotations({ enabledServiceIds, taxSettings, onConfigureServices, onConfigureTax, onNotice }: { enabledServiceIds: string[]; taxSettings: TaxSettings; onConfigureServices: () => void; onConfigureTax: () => void; onNotice: (value: string) => void }) {
+export function Quotations({ enabledServiceIds, taxSettings, onConfigureServices, onConfigureTax, onNotice, onReservationCreated }: { enabledServiceIds: string[]; taxSettings: TaxSettings; onConfigureServices: () => void; onConfigureTax: () => void; onNotice: (value: string) => void; onReservationCreated: () => Promise<void> }) {
   const [guest, setGuest] = useState("Neha & family");
   const [phone, setPhone] = useState("+91 98470 55221");
   const [checkIn, setCheckIn] = useState("2026-12-20");
@@ -51,9 +52,24 @@ export function Quotations({ enabledServiceIds, taxSettings, onConfigureServices
   const [rewardId, setRewardId] = useState("none");
   const [cardOfferId, setCardOfferId] = useState("none");
   const [generated, setGenerated] = useState(false);
+  const [quoteNo, setQuoteNo] = useState("Draft quotation");
+  const [savedQuoteId, setSavedQuoteId] = useState("");
+  const [quoteHistory, setQuoteHistory] = useState<StoredQuote[]>([]);
+  const [saving, setSaving] = useState(false);
   const availableAddOns = useMemo(() => serviceCatalogue.filter((service) => enabledServiceIds.includes(service.id) && !["breakfast", "kids-breakfast", "dinner", "extra-bed"].includes(service.id)), [enabledServiceIds]);
   const selectableAddOns = availableAddOns.filter((service) => !selectedAddOns.includes(service.id));
   const selectedAvailableAddOns = availableAddOns.filter((service) => selectedAddOns.includes(service.id));
+
+  const loadQuotes = async () => {
+    try {
+      const response = await fetch("/api/quotes", { cache: "no-store" });
+      if (!response.ok) return;
+      const data = await response.json() as { quotes?: StoredQuote[] };
+      setQuoteHistory(data.quotes ?? []);
+    } catch { /* Keep the quotation builder available if history is temporarily unavailable. */ }
+  };
+
+  useEffect(() => { void loadQuotes(); }, []);
 
   const quote = useMemo(() => {
     const room = roomTypes.find((item) => item.id === roomId) ?? roomTypes[0];
@@ -89,14 +105,48 @@ export function Quotations({ enabledServiceIds, taxSettings, onConfigureServices
   const removeService = (id: string) => setSelectedAddOns((current) => current.filter((item) => item !== id));
   const updateServiceQuantity = (id: string, value: number) => setServiceQuantities((current) => ({ ...current, [id]: Math.max(1, Math.min(20, value || 1)) }));
   const flash = (text: string) => { onNotice(text); window.setTimeout(() => onNotice(""), 3800); };
-  const generate = () => { setGenerated(true); flash(`Quotation QTN-2026-018 prepared for ${guest}.`); };
+  const generate = async () => {
+    setSaving(true);
+    try {
+      const response = await fetch("/api/quotes", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          guest, phone, checkIn, checkOut, unit: quote.room.name, adults, olderChildren, youngChildren,
+          mealPlan: quote.meal.name,
+          services: selectedAvailableAddOns.map((item) => ({ id: item.id, name: item.name, quantity: serviceQuantities[item.id] ?? 1, amount: item.price * (serviceQuantities[item.id] ?? 1) })),
+          subtotal: quote.subtotal, discount: quote.discountAmount + quote.rewardAmount + quote.cardDiscount, tax: quote.tax, total: quote.total,
+        }),
+      });
+      const data = await response.json() as { quote?: StoredQuote; error?: string };
+      if (!response.ok || !data.quote) throw new Error(data.error || "Unable to save quotation.");
+      setGenerated(true); setSavedQuoteId(data.quote.id); setQuoteNo(data.quote.quoteNo);
+      setQuoteHistory((current) => [data.quote!, ...current.filter((item) => item.id !== data.quote!.id)]);
+      flash(`${data.quote.quoteNo} saved for ${guest}.`);
+    } catch (error) {
+      flash(error instanceof Error ? error.message : "Unable to save quotation.");
+    } finally { setSaving(false); }
+  };
+  const convertQuote = async (id = savedQuoteId) => {
+    if (!id) { flash("Generate and save the quotation before conversion."); return; }
+    setSaving(true);
+    try {
+      const response = await fetch("/api/quotes", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id, action: "convert" }) });
+      const data = await response.json() as { reservation?: { id: string; guest: string }; error?: string };
+      if (!response.ok || !data.reservation) throw new Error(data.error || "Unable to create reservation.");
+      await Promise.all([loadQuotes(), onReservationCreated()]);
+      flash(`Reservation ${data.reservation.id} created for ${data.reservation.guest}.`);
+    } catch (error) {
+      flash(error instanceof Error ? error.message : "Unable to create reservation.");
+    } finally { setSaving(false); }
+  };
   const share = () => {
     const message = `Hello ${guest}, your Cardamom Rock quotation is ready. ${quote.room.name}, ${quote.nights} night${quote.nights > 1 ? "s" : ""}, total ${money(quote.total)}. Valid for 48 hours.`;
     window.open(`https://wa.me/${phone.replace(/\D/g, "")}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
   };
 
   return <>
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-4"><div><p className="mb-1 text-xs font-bold uppercase tracking-[.14em] text-[#006ce4]">Sales desk</p><h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Quotations</h1><p className="mt-2 max-w-2xl text-sm text-slate-500">Build a personalised stay proposal using live seasonal rates, guest composition, meal plans and resort experiences.</p></div><div className="flex gap-2"><Button variant="outline" onClick={() => flash("Blank quotation started.")}><Plus /> New quote</Button><Button className="bg-[#003b95]" onClick={generate}><FileCheck2 /> Generate quotation</Button></div></div>
+    <div className="mb-6 flex flex-wrap items-end justify-between gap-4"><div><p className="mb-1 text-xs font-bold uppercase tracking-[.14em] text-[#006ce4]">Sales desk</p><h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Quotations</h1><p className="mt-2 max-w-2xl text-sm text-slate-500">Build, save and convert personalised stay proposals using live seasonal rates and resort services.</p></div><div className="flex gap-2"><Button variant="outline" onClick={() => { setGenerated(false); setSavedQuoteId(""); setQuoteNo("Draft quotation"); flash("New quotation started."); }}><Plus /> New quote</Button><Button className="bg-[#003b95]" onClick={generate} disabled={saving}><FileCheck2 /> {saving ? "Saving…" : "Generate & save"}</Button></div></div>
 
     <section className="mb-6 grid gap-4 md:grid-cols-4"><QuoteMetric icon={FileCheck2} label="Open quotes" value="8" note="₹3.26L potential" /><QuoteMetric icon={MessageCircleMore} label="Awaiting response" value="5" note="Follow up today" /><QuoteMetric icon={Check} label="Converted" value="42%" note="Last 30 days" /><QuoteMetric icon={IndianRupee} label="Average quote" value="₹38,400" note="Stay + experiences" /></section>
 
@@ -119,11 +169,14 @@ export function Quotations({ enabledServiceIds, taxSettings, onConfigureServices
           {selectedAvailableAddOns.length === 0 && <div className="mt-4 rounded-xl border border-dashed p-5 text-center text-sm text-slate-500">No optional services added to this quotation.</div>}
           {availableAddOns.length === 0 && <div className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-500">No optional services are enabled. Use Configure services to activate them for this resort.</div>}
         </QuoteSection>
+        <QuoteSection title="Recent quotations" description="Saved proposals remain available and can be converted without re-entering guest details.">
+          {quoteHistory.length === 0 ? <div className="rounded-xl border border-dashed p-5 text-center text-sm text-slate-500">No saved quotations yet. Generate the first quotation above.</div> : <div className="space-y-3">{quoteHistory.slice(0, 6).map((item) => <div key={item.id} className="flex flex-wrap items-center gap-3 rounded-xl border p-4"><span className="min-w-[170px] flex-1"><strong className="block text-sm">{item.guest}</strong><span className="text-xs text-slate-500">{item.quoteNo} · {item.unit}</span></span><strong className="text-sm text-[#003b95]">{money(item.total)}</strong><Badge variant="outline" className={item.status === "Converted" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-blue-200 bg-blue-50 text-blue-700"}>{item.status}</Badge>{item.status !== "Converted" && <Button size="sm" variant="outline" onClick={() => void convertQuote(item.id)} disabled={saving}>Convert</Button>}</div>)}</div>}
+        </QuoteSection>
       </div>
 
       <div className="xl:sticky xl:top-[100px] xl:self-start">
         <div className={`quote-print-area overflow-hidden rounded-2xl border bg-white shadow-sm ${generated ? "ring-2 ring-emerald-300" : ""}`}>
-          <div className="bg-[#004bad] p-6 text-white"><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.15em] text-[#febb02]">Cardamom Rock Resort</p><h2 className="mt-2 text-2xl font-bold">Stay quotation</h2><p className="mt-1 text-sm text-white/55">{taxSettings.invoicePrefix || "QTN"}-2026-018 · Valid for 48 hours</p>{taxSettings.gstEnabled && taxSettings.gstin && <p className="mt-1 text-xs text-white/45">GSTIN {taxSettings.gstin}</p>}</div><span className="grid size-11 place-items-center rounded-xl bg-[#febb02] text-[#003b95]"><CalendarRange /></span></div></div>
+          <div className="bg-[#004bad] p-6 text-white"><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.15em] text-[#febb02]">Cardamom Rock Resort</p><h2 className="mt-2 text-2xl font-bold">Stay quotation</h2><p className="mt-1 text-sm text-white/55">{quoteNo} · Valid for 48 hours</p>{taxSettings.gstEnabled && taxSettings.gstin && <p className="mt-1 text-xs text-white/45">GSTIN {taxSettings.gstin}</p>}</div><span className="grid size-11 place-items-center rounded-xl bg-[#febb02] text-[#003b95]"><CalendarRange /></span></div></div>
           <div className="p-6"><div className="flex flex-wrap items-start justify-between gap-4 border-b pb-5"><div><p className="text-xs uppercase tracking-wider text-slate-400">Prepared for</p><strong className="mt-1 block text-lg">{guest || "Guest name"}</strong><span className="text-sm text-slate-500">{phone}</span></div><div className="text-right"><p className="text-xs uppercase tracking-wider text-slate-400">Stay</p><strong className="mt-1 block text-sm">{checkIn} → {checkOut}</strong><span className="text-sm text-slate-500">{quote.nights} nights · {adults + olderChildren + youngChildren} guests</span></div></div>
             <div className="py-5"><div className="mb-4 flex items-center justify-between"><div><strong className="block">{quote.room.name}</strong><span className="text-sm text-slate-500">{quote.meal.name} · {quote.season.name}</span></div><Badge variant="outline">{adults} adults · {olderChildren + youngChildren} kids</Badge></div><div className="space-y-3 text-sm"><Line label={`${quote.nights} nights × dynamic room rate`} value={quote.roomSubtotal} />{quote.extraAdults > 0 && <Line label="Extra adult occupancy" value={quote.extraAdults} />}{quote.olderChildCharge > 0 && <Line label="Children ages 6–12" value={quote.olderChildCharge} />}{quote.mealSubtotal > 0 && <Line label={quote.meal.name} value={quote.mealSubtotal} />}{selectedAvailableAddOns.map((item) => <Line key={item.id} label={`${item.name}${(serviceQuantities[item.id] ?? 1) > 1 ? ` × ${serviceQuantities[item.id]}` : ""}`} value={item.price * (serviceQuantities[item.id] ?? 1)} />)}</div></div>
             <div className="border-t pt-5"><div className="grid gap-3 sm:grid-cols-2"><Field label="Direct-booking discount"><div className="relative"><Input type="number" min="0" max="30" value={discount} onChange={(e) => setDiscount(Number(e.target.value))} className="pr-8" /><span className="absolute right-3 top-2 text-sm text-slate-400">%</span></div></Field><Field label="Redeem loyalty points"><select value={rewardId} onChange={(e) => setRewardId(e.target.value)} className="h-10 w-full rounded-md border bg-white px-3 text-sm">{loyaltyRewards.map((reward) => <option key={reward.id} value={reward.id}>{reward.id === "none" ? reward.name : `${reward.points.toLocaleString("en-IN")} pts · ${reward.name}`}</option>)}</select></Field><Field label="Card / payment offer"><select value={cardOfferId} onChange={(e) => setCardOfferId(e.target.value)} className="h-10 w-full rounded-md border bg-white px-3 text-sm">{cardOffers.map((offer) => <option key={offer.id} value={offer.id}>{offer.name}</option>)}</select></Field></div><div className="mt-5 space-y-3"><Line label="Subtotal" value={quote.subtotal} />{quote.discountAmount > 0 && <Line label={`Direct discount (${discount}%)`} value={-quote.discountAmount} accent />}{quote.rewardAmount > 0 && <Line label={`${quote.reward.name} · ${quote.reward.points.toLocaleString("en-IN")} points`} value={-quote.rewardAmount} accent />}{quote.cardDiscount > 0 && <Line label={quote.cardOffer.name} value={-quote.cardDiscount} accent />}{taxSettings.gstEnabled ? <><Line label={`Accommodation GST (${taxSettings.accommodationRate}%${taxSettings.pricesIncludeTax ? " included" : ""})`} value={quote.accommodationTax} /><Line label={`Services GST (${taxSettings.serviceRate}%${taxSettings.pricesIncludeTax ? " included" : ""})`} value={quote.serviceTax} /></> : <div className="flex items-center justify-between text-sm text-slate-500"><span>GST</span><span className="font-semibold">Disabled</span></div>}</div><button onClick={onConfigureTax} className="mt-3 flex items-center gap-1.5 text-xs font-bold text-[#003b95]"><Settings2 className="size-3.5" /> Configure tax settings</button><div className="mt-4 flex items-end justify-between rounded-xl bg-blue-50 p-4"><span><span className="block text-xs uppercase tracking-wider text-slate-500">Quotation total</span><span className="mt-1 block text-xs text-slate-500">{taxSettings.gstEnabled ? taxSettings.pricesIncludeTax ? "GST included in displayed prices" : "GST added to quotation total" : "No GST applied"}</span></span><strong className="text-2xl text-[#003b95]">{money(quote.total)}</strong></div></div>
@@ -131,6 +184,7 @@ export function Quotations({ enabledServiceIds, taxSettings, onConfigureServices
               <Button className="bg-[#003b95] sm:col-span-2" onClick={share}><MessageCircleMore /> Share on WhatsApp</Button>
               <Button asChild variant="outline"><a href="/cardamom-rock-quotation-template.pdf" download="Cardamom_Rock_Quotation.pdf"><Download /> Download PDF</a></Button>
               <Button variant="outline" onClick={() => window.print()} aria-label="Print or save the current quotation as PDF"><FileCheck2 /> Save current quote</Button>
+              <Button className="bg-emerald-700 hover:bg-emerald-800 sm:col-span-2" onClick={() => void convertQuote()} disabled={!savedQuoteId || saving}><Check /> Convert to reservation</Button>
             </div>
           </div>
         </div>

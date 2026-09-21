@@ -1,5 +1,13 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "entries": []
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1789959610421,
+      "tag": "0000_glossy_lorna_dane",
+      "breakpoints": true
+    }
+  ]
 }
