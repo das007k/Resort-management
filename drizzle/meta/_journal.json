@@ -15,6 +15,13 @@
       "when": 1789961433049,
       "tag": "0001_watery_amphibian",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1789962571732,
+      "tag": "0002_sturdy_red_ghost",
+      "breakpoints": true
     }
   ]
 }

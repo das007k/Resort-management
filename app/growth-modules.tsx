@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowUpRight, Bot, CalendarRange, Check, CircleDollarSign, Clock3, ExternalLink, Globe2, IndianRupee, Link2, MessageCircleMore, RefreshCw, Send, Sparkles, TrendingUp, UsersRound } from "lucide-react";
+import { Bot, Check, CircleDollarSign, ExternalLink, Globe2, MessageCircleMore, RefreshCw, Send, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";

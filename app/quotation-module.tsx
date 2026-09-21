@@ -8,21 +8,21 @@ import { Input } from "@/components/ui/input";
 import { cardOffers, loyaltyRewards, serviceCatalogue, TaxSettings } from "./commercial-config";
 import { money } from "./domain";
 
-type Season = { id: string; name: string; multiplier: number; start: string; end: string; tone: string };
+type Season = { id: string; name: string; startDate: string; endDate: string; adjustmentPercent: number; priority: number; active: boolean };
+type RoomRate = { id: string; roomKey: string; roomName: string; baseRate: number; includedAdults: number; extraAdultRate: number; childRate: number; active: boolean };
 type StoredQuote = { id: string; quoteNo: string; guest: string; unit: string; total: number; status: string; createdAt: string };
 
-const seasons: Season[] = [
-  { id: "green", name: "Green season", multiplier: 0.9, start: "2026-06-01", end: "2026-09-30", tone: "bg-emerald-50 text-emerald-700" },
-  { id: "high", name: "High season", multiplier: 1.15, start: "2026-10-01", end: "2026-12-19", tone: "bg-blue-50 text-blue-700" },
-  { id: "festive", name: "Festive peak", multiplier: 1.35, start: "2026-12-20", end: "2027-01-10", tone: "bg-amber-50 text-amber-800" },
-  { id: "regular", name: "Regular season", multiplier: 1, start: "2027-01-11", end: "2027-05-31", tone: "bg-slate-100 text-slate-700" },
+const defaultSeasons: Season[] = [
+  { id: "green", name: "Green season", adjustmentPercent: -10, startDate: "2026-06-01", endDate: "2026-09-30", priority: 10, active: true },
+  { id: "high", name: "High season", adjustmentPercent: 15, startDate: "2026-10-01", endDate: "2026-12-19", priority: 20, active: true },
+  { id: "festive", name: "Festive peak", adjustmentPercent: 35, startDate: "2026-12-20", endDate: "2027-01-10", priority: 30, active: true },
 ];
 
-const roomTypes = [
-  { id: "pepper", name: "Pepper Cottage", rate: 9200, includedAdults: 2 },
-  { id: "cardamom", name: "Cardamom Suite", rate: 8200, includedAdults: 2 },
-  { id: "cedar", name: "Cedar 2-BHK", rate: 12400, includedAdults: 4 },
-  { id: "mist", name: "Mist Valley Room", rate: 6800, includedAdults: 2 },
+const defaultRoomTypes: RoomRate[] = [
+  { id: "pepper", roomKey: "pepper", roomName: "Pepper Cottage", baseRate: 9200, includedAdults: 2, extraAdultRate: 1500, childRate: 800, active: true },
+  { id: "cardamom", roomKey: "cardamom", roomName: "Cardamom Suite", baseRate: 8200, includedAdults: 2, extraAdultRate: 1500, childRate: 800, active: true },
+  { id: "cedar", roomKey: "cedar", roomName: "Cedar 2-BHK", baseRate: 12400, includedAdults: 4, extraAdultRate: 1500, childRate: 800, active: true },
+  { id: "mist", roomKey: "mist", roomName: "Mist Valley Room", baseRate: 6800, includedAdults: 2, extraAdultRate: 1500, childRate: 800, active: true },
 ];
 
 const mealPlans = [
@@ -33,7 +33,7 @@ const mealPlans = [
 
 function parseDate(value: string) { const [y, m, d] = value.split("-").map(Number); return new Date(Date.UTC(y, m - 1, d)); }
 function nightsBetween(from: string, to: string) { return Math.max(1, Math.round((parseDate(to).getTime() - parseDate(from).getTime()) / 86400000)); }
-function activeSeason(date: string) { return seasons.find((season) => date >= season.start && date <= season.end) ?? seasons[3]; }
+function activeSeason(date: string, seasons: Season[]) { return [...seasons].sort((a, b) => b.priority - a.priority).find((season) => season.active && date >= season.startDate && date <= season.endDate) ?? { id: "regular", name: "Regular season", adjustmentPercent: 0, startDate: date, endDate: date, priority: 0, active: true }; }
 
 export function Quotations({ enabledServiceIds, taxSettings, onConfigureServices, onConfigureTax, onNotice, onReservationCreated }: { enabledServiceIds: string[]; taxSettings: TaxSettings; onConfigureServices: () => void; onConfigureTax: () => void; onNotice: (value: string) => void; onReservationCreated: () => Promise<void> }) {
   const [guest, setGuest] = useState("Neha & family");
@@ -56,6 +56,8 @@ export function Quotations({ enabledServiceIds, taxSettings, onConfigureServices
   const [savedQuoteId, setSavedQuoteId] = useState("");
   const [quoteHistory, setQuoteHistory] = useState<StoredQuote[]>([]);
   const [saving, setSaving] = useState(false);
+  const [roomTypes, setRoomTypes] = useState<RoomRate[]>(defaultRoomTypes);
+  const [seasons, setSeasons] = useState<Season[]>(defaultSeasons);
   const availableAddOns = useMemo(() => serviceCatalogue.filter((service) => enabledServiceIds.includes(service.id) && !["breakfast", "kids-breakfast", "dinner", "extra-bed"].includes(service.id)), [enabledServiceIds]);
   const selectableAddOns = availableAddOns.filter((service) => !selectedAddOns.includes(service.id));
   const selectedAvailableAddOns = availableAddOns.filter((service) => selectedAddOns.includes(service.id));
@@ -68,19 +70,20 @@ export function Quotations({ enabledServiceIds, taxSettings, onConfigureServices
       setQuoteHistory(data.quotes ?? []);
     } catch { /* Keep the quotation builder available if history is temporarily unavailable. */ }
   };
+  const loadPricing = async () => { try { const response = await fetch("/api/pricing", { cache: "no-store" }); if (!response.ok) return; const data = await response.json() as { rates?: RoomRate[]; seasons?: Season[] }; const activeRates = data.rates?.filter((item) => item.active) ?? []; if (activeRates.length) setRoomTypes(activeRates); if (data.seasons?.length) setSeasons(data.seasons); } catch { /* Use safe published defaults while pricing reconnects. */ } };
 
   // Initial synchronization with the persisted quotation ledger.
   // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { void loadQuotes(); }, []);
+  useEffect(() => { void loadQuotes(); void loadPricing(); }, []);
 
   const quote = useMemo(() => {
-    const room = roomTypes.find((item) => item.id === roomId) ?? roomTypes[0];
+    const room = roomTypes.find((item) => item.roomKey === roomId) ?? roomTypes[0];
     const meal = mealPlans.find((item) => item.id === mealId) ?? mealPlans[0];
-    const season = activeSeason(checkIn);
+    const season = activeSeason(checkIn, seasons);
     const nights = nightsBetween(checkIn, checkOut);
-    const roomSubtotal = Math.round(room.rate * season.multiplier) * nights;
-    const extraAdults = Math.max(0, adults - room.includedAdults) * 1500 * nights;
-    const olderChildCharge = olderChildren * 800 * nights;
+    const roomSubtotal = Math.round(room.baseRate * (1 + season.adjustmentPercent / 100)) * nights;
+    const extraAdults = Math.max(0, adults - room.includedAdults) * room.extraAdultRate * nights;
+    const olderChildCharge = olderChildren * room.childRate * nights;
     const mealSubtotal = (adults * meal.adult + olderChildren * meal.child) * nights;
     const extras = selectedAvailableAddOns.reduce((sum, item) => sum + item.price * (serviceQuantities[item.id] ?? 1), 0);
     const accommodationSubtotal = roomSubtotal + extraAdults + olderChildCharge;
@@ -101,7 +104,7 @@ export function Quotations({ enabledServiceIds, taxSettings, onConfigureServices
     const serviceTax = !taxSettings.gstEnabled ? 0 : Math.round(taxSettings.pricesIncludeTax ? serviceTaxable - serviceTaxable / (1 + taxSettings.serviceRate / 100) : serviceTaxable * taxSettings.serviceRate / 100);
     const tax = accommodationTax + serviceTax;
     return { room, meal, season, nights, roomSubtotal, extraAdults, olderChildCharge, mealSubtotal, extras, subtotal, discountAmount, reward, rewardAmount, cardOffer, cardDiscount, taxable, accommodationTax, serviceTax, tax, total: taxSettings.pricesIncludeTax ? taxable : taxable + tax };
-  }, [adults, cardOfferId, checkIn, checkOut, discount, mealId, olderChildren, rewardId, roomId, selectedAvailableAddOns, serviceQuantities, taxSettings]);
+  }, [adults, cardOfferId, checkIn, checkOut, discount, mealId, olderChildren, rewardId, roomId, roomTypes, seasons, selectedAvailableAddOns, serviceQuantities, taxSettings]);
 
   const addService = () => { if (!serviceToAdd) return; setSelectedAddOns((current) => [...new Set([...current, serviceToAdd])]); setServiceQuantities((current) => ({ ...current, [serviceToAdd]: current[serviceToAdd] ?? 1 })); setServiceToAdd(""); };
   const removeService = (id: string) => setSelectedAddOns((current) => current.filter((item) => item !== id));
@@ -114,7 +117,7 @@ export function Quotations({ enabledServiceIds, taxSettings, onConfigureServices
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          guest, phone, checkIn, checkOut, unit: quote.room.name, adults, olderChildren, youngChildren,
+          guest, phone, checkIn, checkOut, unit: quote.room.roomName, adults, olderChildren, youngChildren,
           mealPlan: quote.meal.name,
           services: selectedAvailableAddOns.map((item) => ({ id: item.id, name: item.name, quantity: serviceQuantities[item.id] ?? 1, amount: item.price * (serviceQuantities[item.id] ?? 1) })),
           subtotal: quote.subtotal, discount: quote.discountAmount + quote.rewardAmount + quote.cardDiscount, tax: quote.tax,
@@ -144,7 +147,7 @@ export function Quotations({ enabledServiceIds, taxSettings, onConfigureServices
     } finally { setSaving(false); }
   };
   const share = () => {
-    const message = `Hello ${guest}, your Cardamom Rock quotation is ready. ${quote.room.name}, ${quote.nights} night${quote.nights > 1 ? "s" : ""}, total ${money(quote.total)}. Valid for 48 hours.`;
+    const message = `Hello ${guest}, your Cardamom Rock quotation is ready. ${quote.room.roomName}, ${quote.nights} night${quote.nights > 1 ? "s" : ""}, total ${money(quote.total)}. Valid for 48 hours.`;
     window.open(`https://wa.me/${phone.replace(/\D/g, "")}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
   };
 
@@ -157,11 +160,11 @@ export function Quotations({ enabledServiceIds, taxSettings, onConfigureServices
       <div className="space-y-5">
         <QuoteSection title="Guest & stay" description="Dates automatically select the applicable season.">
           <div className="grid gap-4 sm:grid-cols-2"><Field label="Guest name"><Input value={guest} onChange={(e) => setGuest(e.target.value)} /></Field><Field label="WhatsApp number"><Input value={phone} onChange={(e) => setPhone(e.target.value)} /></Field><Field label="Check-in"><Input type="date" value={checkIn} onInput={(e) => setCheckIn(e.currentTarget.value)} /></Field><Field label="Check-out"><Input type="date" min={checkIn} value={checkOut} onInput={(e) => setCheckOut(e.currentTarget.value)} /></Field></div>
-          <div className={`mt-4 flex items-center justify-between rounded-xl px-4 py-3 ${quote.season.tone}`}><span className="flex items-center gap-2 text-sm font-semibold"><Sparkles className="size-4" /> {quote.season.name} applied</span><strong className="text-sm">{Math.round((quote.season.multiplier - 1) * 100) >= 0 ? "+" : ""}{Math.round((quote.season.multiplier - 1) * 100)}% seasonal rate</strong></div>
+          <div className="mt-4 flex items-center justify-between rounded-xl bg-blue-50 px-4 py-3 text-blue-700"><span className="flex items-center gap-2 text-sm font-semibold"><Sparkles className="size-4" /> {quote.season.name} applied</span><strong className="text-sm">{quote.season.adjustmentPercent >= 0 ? "+" : ""}{quote.season.adjustmentPercent}% seasonal rate</strong></div>
         </QuoteSection>
 
         <QuoteSection title="Accommodation & guests" description="Children 0–5 stay free; ages 6–12 use the child rate.">
-          <Field label="Room or cottage"><select value={roomId} onChange={(e) => setRoomId(e.target.value)} className="h-10 w-full rounded-md border bg-white px-3 text-sm">{roomTypes.map((room) => <option key={room.id} value={room.id}>{room.name} · from {money(room.rate)}</option>)}</select></Field>
+          <Field label="Room or cottage"><select value={roomId} onChange={(e) => setRoomId(e.target.value)} className="h-10 w-full rounded-md border bg-white px-3 text-sm">{roomTypes.map((room) => <option key={room.id} value={room.roomKey}>{room.roomName} · from {money(room.baseRate)}</option>)}</select></Field>
           <div className="mt-4 grid gap-4 sm:grid-cols-3"><NumberField label="Adults (13+)" value={adults} setValue={setAdults} min={1} /><NumberField label="Children (6–12)" value={olderChildren} setValue={setOlderChildren} min={0} /><NumberField label="Children (0–5)" value={youngChildren} setValue={setYoungChildren} min={0} /></div>
         </QuoteSection>
 
@@ -181,7 +184,7 @@ export function Quotations({ enabledServiceIds, taxSettings, onConfigureServices
         <div className={`quote-print-area overflow-hidden rounded-2xl border bg-white shadow-sm ${generated ? "ring-2 ring-emerald-300" : ""}`}>
           <div className="bg-[#004bad] p-6 text-white"><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.15em] text-[#febb02]">Cardamom Rock Resort</p><h2 className="mt-2 text-2xl font-bold">Stay quotation</h2><p className="mt-1 text-sm text-white/55">{quoteNo} · Valid for 48 hours</p>{taxSettings.gstEnabled && taxSettings.gstin && <p className="mt-1 text-xs text-white/45">GSTIN {taxSettings.gstin}</p>}</div><span className="grid size-11 place-items-center rounded-xl bg-[#febb02] text-[#003b95]"><CalendarRange /></span></div></div>
           <div className="p-6"><div className="flex flex-wrap items-start justify-between gap-4 border-b pb-5"><div><p className="text-xs uppercase tracking-wider text-slate-400">Prepared for</p><strong className="mt-1 block text-lg">{guest || "Guest name"}</strong><span className="text-sm text-slate-500">{phone}</span></div><div className="text-right"><p className="text-xs uppercase tracking-wider text-slate-400">Stay</p><strong className="mt-1 block text-sm">{checkIn} → {checkOut}</strong><span className="text-sm text-slate-500">{quote.nights} nights · {adults + olderChildren + youngChildren} guests</span></div></div>
-            <div className="py-5"><div className="mb-4 flex items-center justify-between"><div><strong className="block">{quote.room.name}</strong><span className="text-sm text-slate-500">{quote.meal.name} · {quote.season.name}</span></div><Badge variant="outline">{adults} adults · {olderChildren + youngChildren} kids</Badge></div><div className="space-y-3 text-sm"><Line label={`${quote.nights} nights × dynamic room rate`} value={quote.roomSubtotal} />{quote.extraAdults > 0 && <Line label="Extra adult occupancy" value={quote.extraAdults} />}{quote.olderChildCharge > 0 && <Line label="Children ages 6–12" value={quote.olderChildCharge} />}{quote.mealSubtotal > 0 && <Line label={quote.meal.name} value={quote.mealSubtotal} />}{selectedAvailableAddOns.map((item) => <Line key={item.id} label={`${item.name}${(serviceQuantities[item.id] ?? 1) > 1 ? ` × ${serviceQuantities[item.id]}` : ""}`} value={item.price * (serviceQuantities[item.id] ?? 1)} />)}</div></div>
+            <div className="py-5"><div className="mb-4 flex items-center justify-between"><div><strong className="block">{quote.room.roomName}</strong><span className="text-sm text-slate-500">{quote.meal.name} · {quote.season.name}</span></div><Badge variant="outline">{adults} adults · {olderChildren + youngChildren} kids</Badge></div><div className="space-y-3 text-sm"><Line label={`${quote.nights} nights × dynamic room rate`} value={quote.roomSubtotal} />{quote.extraAdults > 0 && <Line label="Extra adult occupancy" value={quote.extraAdults} />}{quote.olderChildCharge > 0 && <Line label="Children ages 6–12" value={quote.olderChildCharge} />}{quote.mealSubtotal > 0 && <Line label={quote.meal.name} value={quote.mealSubtotal} />}{selectedAvailableAddOns.map((item) => <Line key={item.id} label={`${item.name}${(serviceQuantities[item.id] ?? 1) > 1 ? ` × ${serviceQuantities[item.id]}` : ""}`} value={item.price * (serviceQuantities[item.id] ?? 1)} />)}</div></div>
             <div className="border-t pt-5"><div className="grid gap-3 sm:grid-cols-2"><Field label="Direct-booking discount"><div className="relative"><Input type="number" min="0" max="30" value={discount} onChange={(e) => setDiscount(Number(e.target.value))} className="pr-8" /><span className="absolute right-3 top-2 text-sm text-slate-400">%</span></div></Field><Field label="Redeem loyalty points"><select value={rewardId} onChange={(e) => setRewardId(e.target.value)} className="h-10 w-full rounded-md border bg-white px-3 text-sm">{loyaltyRewards.map((reward) => <option key={reward.id} value={reward.id}>{reward.id === "none" ? reward.name : `${reward.points.toLocaleString("en-IN")} pts · ${reward.name}`}</option>)}</select></Field><Field label="Card / payment offer"><select value={cardOfferId} onChange={(e) => setCardOfferId(e.target.value)} className="h-10 w-full rounded-md border bg-white px-3 text-sm">{cardOffers.map((offer) => <option key={offer.id} value={offer.id}>{offer.name}</option>)}</select></Field></div><div className="mt-5 space-y-3"><Line label="Subtotal" value={quote.subtotal} />{quote.discountAmount > 0 && <Line label={`Direct discount (${discount}%)`} value={-quote.discountAmount} accent />}{quote.rewardAmount > 0 && <Line label={`${quote.reward.name} · ${quote.reward.points.toLocaleString("en-IN")} points`} value={-quote.rewardAmount} accent />}{quote.cardDiscount > 0 && <Line label={quote.cardOffer.name} value={-quote.cardDiscount} accent />}{taxSettings.gstEnabled ? <><Line label={`Accommodation GST (${taxSettings.accommodationRate}%${taxSettings.pricesIncludeTax ? " included" : ""})`} value={quote.accommodationTax} /><Line label={`Services GST (${taxSettings.serviceRate}%${taxSettings.pricesIncludeTax ? " included" : ""})`} value={quote.serviceTax} /></> : <div className="flex items-center justify-between text-sm text-slate-500"><span>GST</span><span className="font-semibold">Disabled</span></div>}</div><button onClick={onConfigureTax} className="mt-3 flex items-center gap-1.5 text-xs font-bold text-[#003b95]"><Settings2 className="size-3.5" /> Configure tax settings</button><div className="mt-4 flex items-end justify-between rounded-xl bg-blue-50 p-4"><span><span className="block text-xs uppercase tracking-wider text-slate-500">Quotation total</span><span className="mt-1 block text-xs text-slate-500">{taxSettings.gstEnabled ? taxSettings.pricesIncludeTax ? "GST included in displayed prices" : "GST added to quotation total" : "No GST applied"}</span></span><strong className="text-2xl text-[#003b95]">{money(quote.total)}</strong></div></div>
             <div className="mt-5 grid gap-2 sm:grid-cols-2">
               <Button className="bg-[#003b95] sm:col-span-2" onClick={share}><MessageCircleMore /> Share on WhatsApp</Button>

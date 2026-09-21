@@ -80,3 +80,52 @@ export const invoices = sqliteTable("invoices", {
   uniqueIndex("idx_invoices_invoice_no").on(table.invoiceNo),
   index("idx_invoices_issued_at").on(table.issuedAt),
 ]);
+
+export const ratePlans = sqliteTable("rate_plans", {
+  id: text("id").primaryKey(),
+  roomKey: text("room_key").notNull(),
+  roomName: text("room_name").notNull(),
+  baseRate: integer("base_rate").notNull(),
+  includedAdults: integer("included_adults").notNull().default(2),
+  extraAdultRate: integer("extra_adult_rate").notNull().default(1500),
+  childRate: integer("child_rate").notNull().default(800),
+  active: integer("active", { mode: "boolean" }).notNull().default(true),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [uniqueIndex("idx_rate_plans_room_key").on(table.roomKey)]);
+
+export const seasonRules = sqliteTable("season_rules", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  startDate: text("start_date").notNull(),
+  endDate: text("end_date").notNull(),
+  adjustmentPercent: integer("adjustment_percent").notNull().default(0),
+  priority: integer("priority").notNull().default(0),
+  active: integer("active", { mode: "boolean" }).notNull().default(true),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [index("idx_season_rules_dates_active").on(table.startDate, table.endDate, table.active)]);
+
+export const paymentAccounts = sqliteTable("payment_accounts", {
+  id: text("id").primaryKey(),
+  provider: text("provider").notNull(),
+  displayName: text("display_name").notNull(),
+  merchantId: text("merchant_id").notNull().default(""),
+  keyId: text("key_id").notNull().default(""),
+  upiId: text("upi_id").notNull().default(""),
+  settlementAccountMask: text("settlement_account_mask").notNull().default(""),
+  mode: text("mode").notNull().default("Test"),
+  active: integer("active", { mode: "boolean" }).notNull().default(false),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedByEmail: text("updated_by_email").notNull().default(""),
+}, (table) => [uniqueIndex("idx_payment_accounts_provider").on(table.provider)]);
+
+export const staffUsers = sqliteTable("staff_users", {
+  id: text("id").primaryKey(),
+  email: text("email").notNull(),
+  fullName: text("full_name").notNull(),
+  phone: text("phone").notNull().default(""),
+  role: text("role").notNull().default("Front Desk"),
+  status: text("status").notNull().default("Active"),
+  createdByEmail: text("created_by_email").notNull().default(""),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [uniqueIndex("idx_staff_users_email").on(table.email), index("idx_staff_users_role_status").on(table.role, table.status)]);
