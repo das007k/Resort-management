@@ -69,6 +69,8 @@ export function Quotations({ enabledServiceIds, taxSettings, onConfigureServices
     } catch { /* Keep the quotation builder available if history is temporarily unavailable. */ }
   };
 
+  // Initial synchronization with the persisted quotation ledger.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void loadQuotes(); }, []);
 
   const quote = useMemo(() => {
@@ -115,7 +117,8 @@ export function Quotations({ enabledServiceIds, taxSettings, onConfigureServices
           guest, phone, checkIn, checkOut, unit: quote.room.name, adults, olderChildren, youngChildren,
           mealPlan: quote.meal.name,
           services: selectedAvailableAddOns.map((item) => ({ id: item.id, name: item.name, quantity: serviceQuantities[item.id] ?? 1, amount: item.price * (serviceQuantities[item.id] ?? 1) })),
-          subtotal: quote.subtotal, discount: quote.discountAmount + quote.rewardAmount + quote.cardDiscount, tax: quote.tax, total: quote.total,
+          subtotal: quote.subtotal, discount: quote.discountAmount + quote.rewardAmount + quote.cardDiscount, tax: quote.tax,
+          accommodationTax: quote.accommodationTax, serviceTax: quote.serviceTax, total: quote.total,
         }),
       });
       const data = await response.json() as { quote?: StoredQuote; error?: string };

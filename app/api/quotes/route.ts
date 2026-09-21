@@ -4,7 +4,7 @@ type QuoteInput = {
   guest?: string; phone?: string; checkIn?: string; checkOut?: string; unit?: string;
   adults?: number; olderChildren?: number; youngChildren?: number; mealPlan?: string;
   services?: { id: string; name: string; quantity: number; amount: number }[];
-  subtotal?: number; discount?: number; tax?: number; total?: number;
+  subtotal?: number; discount?: number; tax?: number; accommodationTax?: number; serviceTax?: number; total?: number;
 };
 
 function quoteNumber() {
@@ -41,14 +41,16 @@ export async function POST(request: Request) {
     await db.prepare(`
       INSERT INTO quotes (
         id, quote_no, guest, phone, check_in, check_out, unit, adults, older_children,
-        young_children, meal_plan, services_json, subtotal, discount, tax, total, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Sent')
+        young_children, meal_plan, services_json, subtotal, discount, tax,
+        accommodation_tax, service_tax, total, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Sent')
     `).bind(
       id, quoteNo, input.guest.trim(), input.phone?.trim() ?? "", input.checkIn, input.checkOut,
       input.unit, Math.max(1, Number(input.adults ?? 1)), Math.max(0, Number(input.olderChildren ?? 0)),
       Math.max(0, Number(input.youngChildren ?? 0)), input.mealPlan ?? "Room only",
       JSON.stringify(input.services ?? []), Math.max(0, Math.round(input.subtotal ?? 0)),
       Math.max(0, Math.round(input.discount ?? 0)), Math.max(0, Math.round(input.tax ?? 0)),
+      Math.max(0, Math.round(input.accommodationTax ?? 0)), Math.max(0, Math.round(input.serviceTax ?? 0)),
       Math.max(0, Math.round(input.total ?? 0)),
     ).run();
     const quote = await db.prepare(`

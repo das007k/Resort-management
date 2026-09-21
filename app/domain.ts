@@ -4,6 +4,7 @@ export type Reservation = {
   id: string; guest: string; phone: string; unit: string; checkIn: string; checkOut: string;
   source: "Direct" | "Booking.com" | "MakeMyTrip" | "Walk-in";
   amount: number; paid: number; status: "Confirmed" | "Checked in" | "Pending";
+  persisted?: boolean;
 };
 
 export type Unit = {
