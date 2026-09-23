@@ -129,3 +129,31 @@ export const staffUsers = sqliteTable("staff_users", {
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [uniqueIndex("idx_staff_users_email").on(table.email), index("idx_staff_users_role_status").on(table.role, table.status)]);
+
+export const operationalTasks = sqliteTable("operational_tasks", {
+  id: text("id").primaryKey(),
+  type: text("type").notNull(),
+  unit: text("unit").notNull(),
+  title: text("title").notNull(),
+  priority: text("priority").notNull().default("Normal"),
+  status: text("status").notNull().default("Open"),
+  assignee: text("assignee").notNull().default(""),
+  dueAt: text("due_at"),
+  notes: text("notes").notNull().default(""),
+  createdByEmail: text("created_by_email").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  index("idx_operational_tasks_type_status").on(table.type, table.status),
+  index("idx_operational_tasks_unit").on(table.unit),
+]);
+
+export const activityLogs = sqliteTable("activity_logs", {
+  id: text("id").primaryKey(),
+  actorEmail: text("actor_email").notNull(),
+  action: text("action").notNull(),
+  entityType: text("entity_type").notNull(),
+  entityId: text("entity_id").notNull(),
+  detail: text("detail").notNull().default(""),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [index("idx_activity_logs_entity").on(table.entityType, table.entityId), index("idx_activity_logs_created_at").on(table.createdAt)]);

@@ -1,4 +1,7 @@
 import { databaseError, getD1 } from "@/db/d1";
+import { requireStaff } from "../admin/auth";
+
+const salesRoles = ["Admin", "Manager", "Front Desk"];
 
 type QuoteInput = {
   guest?: string; phone?: string; checkIn?: string; checkOut?: string; unit?: string;
@@ -15,8 +18,9 @@ function reservationNumber() {
   return `STX-${Date.now().toString().slice(-6)}`;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const identity = await requireStaff(request, salesRoles); if (identity instanceof Response) return identity;
     const result = await getD1().prepare(`
       SELECT id, quote_no AS quoteNo, guest, phone, check_in AS checkIn, check_out AS checkOut,
         unit, adults, older_children AS olderChildren, young_children AS youngChildren,
@@ -31,6 +35,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const identity = await requireStaff(request, salesRoles); if (identity instanceof Response) return identity;
     const input = (await request.json()) as QuoteInput;
     if (!input.guest?.trim() || !input.checkIn || !input.checkOut || !input.unit) {
       return Response.json({ error: "Guest, dates and accommodation are required." }, { status: 400 });
@@ -65,6 +70,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    const identity = await requireStaff(request, salesRoles); if (identity instanceof Response) return identity;
     const { id, action } = (await request.json()) as { id?: string; action?: string };
     if (!id || action !== "convert") return Response.json({ error: "A valid conversion request is required." }, { status: 400 });
     const db = getD1();

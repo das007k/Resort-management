@@ -1,11 +1,15 @@
 import { databaseError, getD1 } from "@/db/d1";
+import { requireStaff } from "../admin/auth";
+
+const financeRoles = ["Admin", "Manager", "Front Desk", "Accounts"];
 
 function invoiceNumber() {
   return `INV-${new Date().getUTCFullYear()}-${Date.now().toString().slice(-6)}`;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const identity = await requireStaff(request, financeRoles); if (identity instanceof Response) return identity;
     const result = await getD1().prepare(`
       SELECT id, reservation_id AS reservationId, invoice_no AS invoiceNo, guest, phone,
         items_json AS itemsJson, subtotal, accommodation_tax AS accommodationTax,
@@ -20,6 +24,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const identity = await requireStaff(request, financeRoles); if (identity instanceof Response) return identity;
     const input = (await request.json()) as { reservationId?: string; items?: unknown[]; subtotal?: number; accommodationTax?: number; serviceTax?: number; total?: number };
     if (!input.reservationId) return Response.json({ error: "Select a saved reservation." }, { status: 400 });
     const db = getD1();

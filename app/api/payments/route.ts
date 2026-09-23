@@ -1,11 +1,15 @@
 import { databaseError, getD1 } from "@/db/d1";
+import { requireStaff } from "../admin/auth";
+
+const financeRoles = ["Admin", "Manager", "Front Desk", "Accounts"];
 
 function reference(prefix: string) {
   return `${prefix}-${new Date().getUTCFullYear()}-${Date.now().toString().slice(-6)}`;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const identity = await requireStaff(request, financeRoles); if (identity instanceof Response) return identity;
     const result = await getD1().prepare(`
       SELECT p.id, p.reference, p.reservation_id AS reservationId, p.amount, p.method, p.status,
         p.created_at AS createdAt, p.paid_at AS paidAt, r.guest, r.unit
@@ -20,6 +24,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const identity = await requireStaff(request, financeRoles); if (identity instanceof Response) return identity;
     const input = (await request.json()) as { reservationId?: string; amount?: number; method?: string };
     if (!input.reservationId || !Number.isFinite(input.amount) || Number(input.amount) <= 0) {
       return Response.json({ error: "Reservation and payment amount are required." }, { status: 400 });
@@ -47,6 +52,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    const identity = await requireStaff(request, financeRoles); if (identity instanceof Response) return identity;
     const { id } = (await request.json()) as { id?: string };
     if (!id) return Response.json({ error: "Payment request is required." }, { status: 400 });
     const db = getD1();

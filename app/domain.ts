@@ -3,7 +3,7 @@ export type ViewKey = "overview" | "quotations" | "invoices" | "services" | "loy
 export type Reservation = {
   id: string; guest: string; phone: string; unit: string; checkIn: string; checkOut: string;
   source: "Direct" | "Booking.com" | "MakeMyTrip" | "Walk-in";
-  amount: number; paid: number; status: "Confirmed" | "Checked in" | "Pending";
+  amount: number; paid: number; status: "Confirmed" | "Checked in" | "Checked out" | "Pending" | "Cancelled";
   persisted?: boolean;
 };
 

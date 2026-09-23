@@ -1,7 +1,11 @@
 import { databaseError, getD1 } from "@/db/d1";
+import { requireStaff } from "../admin/auth";
 
-export async function GET() {
+const reservationRoles = ["Admin", "Manager", "Front Desk", "Accounts"];
+
+export async function GET(request: Request) {
   try {
+    const identity = await requireStaff(request, reservationRoles); if (identity instanceof Response) return identity;
     const result = await getD1().prepare(`
       SELECT id, guest, phone, unit, check_in AS checkIn, check_out AS checkOut,
         source, amount, paid, status FROM reservations ORDER BY created_at DESC LIMIT 100
@@ -14,6 +18,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const identity = await requireStaff(request, ["Admin", "Manager", "Front Desk"]); if (identity instanceof Response) return identity;
     const input = (await request.json()) as { guest?: string; phone?: string; unit?: string; checkIn?: string; checkOut?: string; amount?: number };
     if (!input.guest?.trim() || !input.unit || !input.checkIn || !input.checkOut) {
       return Response.json({ error: "Guest, dates and accommodation are required." }, { status: 400 });
