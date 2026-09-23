@@ -19,7 +19,7 @@ This package is configured for:
    ```
 
 4. Complete the Cloudflare login/authorization in the browser when prompted.
-5. Wait for the script to apply the four database migrations and deploy the Worker.
+5. Wait for the script to apply the tracked database migrations and deploy the Worker. It is safe to run the script again if deployment is interrupted.
 6. Copy the `workers.dev` URL printed by Wrangler.
 
 ## Protect the testing URL

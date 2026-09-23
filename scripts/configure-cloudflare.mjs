@@ -19,6 +19,7 @@ config.d1_databases = [{
   binding: "DB",
   database_name: "stayaxis-cardamom-test",
   database_id: databaseId,
+  migrations_dir: "../../migrations",
 }];
 
 writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
