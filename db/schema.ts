@@ -216,3 +216,47 @@ export const connectorConfigurations = sqliteTable("connector_configurations", {
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedByEmail: text("updated_by_email").notNull().default(""),
 }, (table) => [uniqueIndex("idx_connector_provider").on(table.provider), index("idx_connector_category_status").on(table.category, table.status)]);
+
+export const marketRateSnapshots = sqliteTable("market_rate_snapshots", {
+  id: text("id").primaryKey(),
+  propertyName: text("property_name").notNull(),
+  stayDate: text("stay_date").notNull(),
+  roomType: text("room_type").notNull().default("Comparable room"),
+  rate: integer("rate").notNull(),
+  source: text("source").notNull().default("Sample"),
+  capturedAt: text("captured_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [index("idx_market_rates_date_property").on(table.stayDate, table.propertyName)]);
+
+export const aiRecommendations = sqliteTable("ai_recommendations", {
+  id: text("id").primaryKey(),
+  recommendationType: text("recommendation_type").notNull(),
+  title: text("title").notNull(),
+  summary: text("summary").notNull(),
+  rationaleJson: text("rationale_json").notNull().default("[]"),
+  targetDate: text("target_date"),
+  roomKey: text("room_key"),
+  currentRate: integer("current_rate").notNull().default(0),
+  proposedRate: integer("proposed_rate").notNull().default(0),
+  promotionJson: text("promotion_json").notNull().default("{}"),
+  audienceJson: text("audience_json").notNull().default("{}"),
+  channelsJson: text("channels_json").notNull().default("[]"),
+  confidence: integer("confidence").notNull().default(0),
+  status: text("status").notNull().default("Proposed"),
+  approvedByEmail: text("approved_by_email").notNull().default(""),
+  approvedAt: text("approved_at"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [index("idx_ai_recommendations_status_created").on(table.status, table.createdAt)]);
+
+export const campaigns = sqliteTable("campaigns", {
+  id: text("id").primaryKey(),
+  recommendationId: text("recommendation_id").references(() => aiRecommendations.id),
+  name: text("name").notNull(),
+  audienceJson: text("audience_json").notNull().default("{}"),
+  channelsJson: text("channels_json").notNull().default("[]"),
+  contentJson: text("content_json").notNull().default("{}"),
+  status: text("status").notNull().default("Draft"),
+  scheduledAt: text("scheduled_at"),
+  approvedByEmail: text("approved_by_email").notNull().default(""),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [uniqueIndex("idx_campaign_recommendation").on(table.recommendationId), index("idx_campaign_status_schedule").on(table.status, table.scheduledAt)]);
