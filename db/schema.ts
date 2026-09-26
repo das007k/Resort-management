@@ -197,3 +197,22 @@ export const resortServices = sqliteTable("resort_services", {
   approvalRequired: integer("approval_required", { mode: "boolean" }).notNull().default(false),
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [uniqueIndex("idx_resort_services_name").on(table.name), index("idx_resort_services_category_active").on(table.category, table.active)]);
+
+export const connectorConfigurations = sqliteTable("connector_configurations", {
+  id: text("id").primaryKey(),
+  category: text("category").notNull(),
+  provider: text("provider").notNull(),
+  displayName: text("display_name").notNull(),
+  mode: text("mode").notNull().default("Test"),
+  status: text("status").notNull().default("Not configured"),
+  baseUrl: text("base_url").notNull().default(""),
+  accountId: text("account_id").notNull().default(""),
+  propertyId: text("property_id").notNull().default(""),
+  webhookPath: text("webhook_path").notNull().default(""),
+  capabilitiesJson: text("capabilities_json").notNull().default("[]"),
+  secretKeysJson: text("secret_keys_json").notNull().default("[]"),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(false),
+  lastCheckedAt: text("last_checked_at"),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedByEmail: text("updated_by_email").notNull().default(""),
+}, (table) => [uniqueIndex("idx_connector_provider").on(table.provider), index("idx_connector_category_status").on(table.category, table.status)]);
