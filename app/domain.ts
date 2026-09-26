@@ -9,7 +9,7 @@ export type Reservation = {
 
 export type Unit = {
   id: string; name: string; type: "Cottage" | "Room"; parent?: string;
-  status: "Available" | "Occupied" | "Dirty" | "Blocked"; rate: number;
+  status: "Available" | "Occupied" | "Dirty" | "Blocked"; rate: number; active?: boolean;
 };
 
 export const seedReservations: Reservation[] = [

@@ -5,7 +5,7 @@ import { BedDouble, CheckCircle2, Clock3, Plus, RefreshCw, ShieldAlert, UserChec
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { money, Reservation, seedUnits } from "./domain";
+import { money, Reservation, Unit } from "./domain";
 
 type TaskType = "Housekeeping" | "Maintenance";
 type OperationsTask = { id: string; type: TaskType; unit: string; title: string; priority: string; status: string; assignee: string; dueAt?: string | null; notes: string; updatedAt: string };
@@ -32,8 +32,9 @@ export function MaintenanceOperations({ onNotice }: { onNotice: (value: string) 
 
 function TaskBoard({ type, onNotice }: { type: TaskType; onNotice: (value: string) => void }) {
   const [tasks, setTasks] = useState<OperationsTask[]>([]); const [error, setError] = useState(""); const [busy, setBusy] = useState(false); const isHousekeeping = type === "Housekeeping";
+  const [units, setUnits] = useState<Unit[]>([]);
   const statuses = isHousekeeping ? ["Open", "In progress", "Ready", "Completed"] : ["Open", "Assigned", "In progress", "Resolved"];
-  const load = useCallback(async () => { const response = await fetch(`/api/operations?type=${type}`, { cache: "no-store" }); const data = await response.json() as { tasks?: OperationsTask[]; error?: string }; if (!response.ok) { setError(data.error || `Unable to load ${type.toLowerCase()}.`); return; } setError(""); setTasks(data.tasks ?? []); }, [type]);
+  const load = useCallback(async () => { const [response, configurationResponse] = await Promise.all([fetch(`/api/operations?type=${type}`, { cache: "no-store" }), fetch("/api/configuration", { cache: "no-store" })]); const data = await response.json() as { tasks?: OperationsTask[]; error?: string }; const configuration = await configurationResponse.json() as { units?: Unit[] }; if (!response.ok) { setError(data.error || `Unable to load ${type.toLowerCase()}.`); return; } setError(""); setTasks(data.tasks ?? []); if (configurationResponse.ok) setUnits((configuration.units ?? []).filter((unit) => unit.active !== false)); }, [type]);
   // Initial synchronization with the operational ledger.
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void load(); }, [load]);
@@ -43,7 +44,7 @@ function TaskBoard({ type, onNotice }: { type: TaskType; onNotice: (value: strin
   if (error) return <AccessError message={error} />;
   return <>
     <Header eyebrow={isHousekeeping ? "Room readiness" : "Assets"} title={type} description={isHousekeeping ? "Assign, clean, inspect and release rooms using a persistent task board." : "Log, assign and resolve resort maintenance issues with an auditable status history."} />
-    <form onSubmit={create} className="mb-6 grid gap-3 rounded-2xl border bg-white p-5 shadow-sm md:grid-cols-[1fr_1.5fr_140px_1fr_auto] md:items-end"><Field label="Room / area"><select name="unit" required className="h-10 rounded-md border bg-white px-3 text-sm"><option value="">Select unit</option>{seedUnits.map((unit) => <option key={unit.id}>{unit.name}</option>)}<option>Reception</option><option>Restaurant</option><option>Common area</option></select></Field><Field label="Task"><Input name="title" required placeholder={isHousekeeping ? "Checkout clean and replenish" : "Describe the issue"} /></Field><Field label="Priority"><select name="priority" className="h-10 rounded-md border bg-white px-3 text-sm"><option>Normal</option><option>High</option><option>Urgent</option></select></Field><Field label="Assign to"><Input name="assignee" placeholder="Staff or vendor" /></Field><Button className="bg-[#003b95]" disabled={busy}><Plus /> Add task</Button></form>
+    <form onSubmit={create} className="mb-6 grid gap-3 rounded-2xl border bg-white p-5 shadow-sm md:grid-cols-[1fr_1.5fr_140px_1fr_auto] md:items-end"><Field label="Room / area"><select name="unit" required className="h-10 rounded-md border bg-white px-3 text-sm"><option value="">Select configured unit</option>{units.map((unit) => <option key={unit.id}>{unit.name}</option>)}</select></Field><Field label="Task"><Input name="title" required placeholder={isHousekeeping ? "Checkout clean and replenish" : "Describe the issue"} /></Field><Field label="Priority"><select name="priority" className="h-10 rounded-md border bg-white px-3 text-sm"><option>Normal</option><option>High</option><option>Urgent</option></select></Field><Field label="Assign to"><Input name="assignee" placeholder="Staff or vendor" /></Field><Button className="bg-[#003b95]" disabled={busy}><Plus /> Add task</Button></form>
     <div className={`grid gap-5 ${statuses.length === 4 ? "xl:grid-cols-4" : "xl:grid-cols-3"}`}>
       {statuses.map((status) => {
         const items = tasks.filter((task) => task.status === status);
