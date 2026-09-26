@@ -14,11 +14,11 @@ export function ServiceCatalogueAdmin({ enabledServiceIds, onEnabledChange, onNo
   const [category, setCategory] = useState<"All" | ServiceCategory>("All");
   const filtered = useMemo(() => serviceCatalogue.filter((service) => (category === "All" || service.category === category) && `${service.name} ${service.category}`.toLowerCase().includes(search.toLowerCase())), [category, search]);
   const flash = (text: string) => { onNotice(text); window.setTimeout(() => onNotice(""), 3200); };
-  const toggle = (id: string, checked: boolean) => {
+  const toggle = async (id: string, checked: boolean) => {
     const next = checked ? [...new Set([...enabledServiceIds, id])] : enabledServiceIds.filter((item) => item !== id);
     onEnabledChange(next);
     const service = serviceCatalogue.find((item) => item.id === id);
-    flash(`${service?.name} ${checked ? "enabled for Cardamom Rock" : "removed from new quotations"}.`);
+    try { const response = await fetch("/api/configuration", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: "service", id, active: checked, price: service?.price ?? 0 }) }); if (!response.ok) throw new Error("Unable to save service configuration."); flash(`${service?.name} ${checked ? "enabled for Cardamom Rock" : "removed from new quotations"}.`); } catch (error) { onEnabledChange(enabledServiceIds); flash(error instanceof Error ? error.message : "Unable to save service configuration."); }
   };
   return <>
     <Heading eyebrow="Property configuration" title="Services & add-ons" description="Maintain one complete catalogue, then enable only the services offered by each resort." action={<Button className="bg-[#003b95]" onClick={() => flash("Custom service form opened for Cardamom Rock.")}><Plus /> Add custom service</Button>} />
@@ -52,7 +52,7 @@ export function LoyaltyAndOffers({ onNotice }: { onNotice: (value: string) => vo
 
 export function PropertySettings({ taxSettings, onTaxSettingsChange, onNotice }: { taxSettings: TaxSettings; onTaxSettingsChange: (settings: TaxSettings) => void; onNotice: (value: string) => void }) {
   const update = <K extends keyof TaxSettings>(key: K, value: TaxSettings[K]) => onTaxSettingsChange({ ...taxSettings, [key]: value });
-  const save = () => { onNotice("Tax and invoicing settings saved for Cardamom Rock."); window.setTimeout(() => onNotice(""), 3400); };
+  const save = async () => { try { const response = await fetch("/api/configuration", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: "settings", ...taxSettings }) }); if (!response.ok) throw new Error("Unable to save tax settings."); onNotice("Tax and invoicing settings saved for Cardamom Rock."); } catch (error) { onNotice(error instanceof Error ? error.message : "Unable to save tax settings."); } window.setTimeout(() => onNotice(""), 3400); };
   const clampRate = (value: number) => Math.max(0, Math.min(100, Number.isFinite(value) ? value : 0));
   return <>
     <Heading eyebrow="Property configuration" title="Settings" description="Control tax calculation and invoice identity for this resort. Quotations use these values automatically." />

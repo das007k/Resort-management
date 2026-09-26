@@ -1,5 +1,6 @@
 import { databaseError, getD1 } from "@/db/d1";
 import { requireStaff } from "../admin/auth";
+import { assertAvailability, isAvailabilityConflict, validateStay } from "../inventory";
 
 const salesRoles = ["Admin", "Manager", "Front Desk"];
 
@@ -40,6 +41,8 @@ export async function POST(request: Request) {
     if (!input.guest?.trim() || !input.checkIn || !input.checkOut || !input.unit) {
       return Response.json({ error: "Guest, dates and accommodation are required." }, { status: 400 });
     }
+    const invalidStay = validateStay(input.checkIn, input.checkOut);
+    if (invalidStay) return Response.json({ error: invalidStay }, { status: 400 });
     const id = crypto.randomUUID();
     const quoteNo = quoteNumber();
     const db = getD1();
@@ -86,6 +89,9 @@ export async function PATCH(request: Request) {
     `).bind(id).first();
 
     if (!reservation) {
+      const invalidStay = validateStay(quote.checkIn, quote.checkOut);
+      if (invalidStay) return Response.json({ error: invalidStay }, { status: 400 });
+      await assertAvailability(db, quote.unit, quote.checkIn, quote.checkOut);
       const reservationId = reservationNumber();
       await db.batch([
         db.prepare(`
@@ -101,6 +107,6 @@ export async function PATCH(request: Request) {
     }
     return Response.json({ reservation });
   } catch (error) {
-    return Response.json({ error: databaseError(error) }, { status: 500 });
+    return Response.json({ error: databaseError(error) }, { status: isAvailabilityConflict(error) ? 409 : 500 });
   }
 }

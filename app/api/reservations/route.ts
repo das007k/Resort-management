@@ -1,5 +1,6 @@
 import { databaseError, getD1 } from "@/db/d1";
 import { requireStaff } from "../admin/auth";
+import { assertAvailability, isAvailabilityConflict, validateStay } from "../inventory";
 
 const reservationRoles = ["Admin", "Manager", "Front Desk", "Accounts"];
 
@@ -23,8 +24,11 @@ export async function POST(request: Request) {
     if (!input.guest?.trim() || !input.unit || !input.checkIn || !input.checkOut) {
       return Response.json({ error: "Guest, dates and accommodation are required." }, { status: 400 });
     }
+    const invalidStay = validateStay(input.checkIn, input.checkOut);
+    if (invalidStay) return Response.json({ error: invalidStay }, { status: 400 });
     const id = `STX-${Date.now().toString().slice(-6)}`;
     const db = getD1();
+    await assertAvailability(db, input.unit, input.checkIn, input.checkOut);
     await db.prepare(`
       INSERT INTO reservations (id, guest, phone, unit, check_in, check_out, source, amount, paid, status)
       VALUES (?, ?, ?, ?, ?, ?, 'Direct', ?, 0, 'Pending')
@@ -35,6 +39,6 @@ export async function POST(request: Request) {
     `).bind(id).first();
     return Response.json({ reservation }, { status: 201 });
   } catch (error) {
-    return Response.json({ error: databaseError(error) }, { status: 500 });
+    return Response.json({ error: databaseError(error) }, { status: isAvailabilityConflict(error) ? 409 : 500 });
   }
 }

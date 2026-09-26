@@ -157,3 +157,43 @@ export const activityLogs = sqliteTable("activity_logs", {
   detail: text("detail").notNull().default(""),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [index("idx_activity_logs_entity").on(table.entityType, table.entityId), index("idx_activity_logs_created_at").on(table.createdAt)]);
+
+export const propertySettings = sqliteTable("property_settings", {
+  id: text("id").primaryKey().default("primary"),
+  propertyName: text("property_name").notNull().default("Cardamom Rock Resort"),
+  currency: text("currency").notNull().default("INR"),
+  timezone: text("timezone").notNull().default("Asia/Kolkata"),
+  gstEnabled: integer("gst_enabled", { mode: "boolean" }).notNull().default(true),
+  accommodationTaxRate: integer("accommodation_tax_rate").notNull().default(12),
+  serviceTaxRate: integer("service_tax_rate").notNull().default(18),
+  pricesIncludeTax: integer("prices_include_tax", { mode: "boolean" }).notNull().default(false),
+  gstin: text("gstin").notNull().default(""),
+  invoicePrefix: text("invoice_prefix").notNull().default("CRR"),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedByEmail: text("updated_by_email").notNull().default(""),
+});
+
+export const accommodationUnits = sqliteTable("accommodation_units", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  type: text("type").notNull().default("Room"),
+  parentId: text("parent_id"),
+  capacityAdults: integer("capacity_adults").notNull().default(2),
+  capacityChildren: integer("capacity_children").notNull().default(1),
+  baseRate: integer("base_rate").notNull().default(0),
+  housekeepingStatus: text("housekeeping_status").notNull().default("Ready"),
+  active: integer("active", { mode: "boolean" }).notNull().default(true),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [uniqueIndex("idx_accommodation_units_name").on(table.name), index("idx_accommodation_units_parent").on(table.parentId)]);
+
+export const resortServices = sqliteTable("resort_services", {
+  id: text("id").primaryKey(),
+  category: text("category").notNull(),
+  name: text("name").notNull(),
+  unit: text("unit").notNull().default("per booking"),
+  price: integer("price").notNull().default(0),
+  active: integer("active", { mode: "boolean" }).notNull().default(false),
+  bookableOnline: integer("bookable_online", { mode: "boolean" }).notNull().default(false),
+  approvalRequired: integer("approval_required", { mode: "boolean" }).notNull().default(false),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [uniqueIndex("idx_resort_services_name").on(table.name), index("idx_resort_services_category_active").on(table.category, table.active)]);
