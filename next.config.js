@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  outputFileTracingIncludes: { "/*": ["./node_modules/pg-cloudflare/**/*"] },
   async headers() {
     return [
       {
@@ -17,3 +18,5 @@ const nextConfig = {
 };
 
 module.exports = nextConfig;
+
+import('@opennextjs/cloudflare').then(m => m.initOpenNextCloudflareForDev());
