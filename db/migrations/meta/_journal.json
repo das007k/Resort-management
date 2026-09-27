@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1789637093888,
+      "tag": "0000_glamorous_caretaker",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789637371838,
+      "tag": "0001_add_reservation_unit_block_type",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789637374578,
+      "tag": "0002_reservation_units_no_overlap",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789641165473,
+      "tag": "0003_users_email_globally_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789641441789,
+      "tag": "0004_cross_org_property_composite_fks",
+      "breakpoints": true
+    }
+  ]
+}

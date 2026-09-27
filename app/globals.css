@@ -1,0 +1,27 @@
+:root {
+  --sx-nav-bg: #0e2a20;      /* dark forest-green navigation */
+  --sx-accent: #a4e635;      /* lime accent */
+  --sx-bg: #f5f7f5;
+  --sx-surface: #ffffff;
+  --sx-text: #14231c;
+  --sx-muted: #5b6b62;
+  --sx-danger: #c0392b;
+  --sx-warning: #d68910;
+  --sx-success: #2e7d32;
+  --sx-border: #e1e6e2;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--sx-bg);
+  color: var(--sx-text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+a {
+  color: inherit;
+}

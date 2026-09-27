@@ -1,0 +1,2 @@
+CREATE TYPE "public"."reservation_unit_block_type" AS ENUM('OCCUPIED', 'LINKED_BLOCK');--> statement-breakpoint
+ALTER TABLE "reservation_units" ADD COLUMN "block_type" "reservation_unit_block_type" DEFAULT 'OCCUPIED' NOT NULL;
