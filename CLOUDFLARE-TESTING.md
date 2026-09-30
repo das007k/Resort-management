@@ -2,7 +2,7 @@
 
 This package is configured for:
 
-- Worker: `stayaxis-cardamom`
+- Worker: `stayaxis-cardamom-test`
 - D1 database: `stayaxis-cardamom-test`
 - Owner/Admin: `das007k@gmail.com`
 - Tester/Manager: `sinson.vc@gmail.com`
@@ -27,7 +27,7 @@ This package is configured for:
 Do not share the URL until Cloudflare Access is enabled.
 
 1. Cloudflare Dashboard → **Workers & Pages**.
-2. Open **stayaxis-cardamom**.
+2. Open **stayaxis-cardamom-test**.
 3. Open **Settings → Domains & Routes**.
 4. For the `workers.dev` URL, choose **Enable Cloudflare Access**.
 5. Create an Allow policy containing only:
